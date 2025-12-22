@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Background -->
+    <path
+        android:fillColor="#128C7E"
+        android:pathData="M0,0h48v48h-48z"/>
+    <!-- Plate circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,24m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0"/>
+    <!-- Fork and knife simplified -->
+    <path
+        android:fillColor="#128C7E"
+        android:pathData="M18,14 L18,34 L21,34 L21,14 Z M27,14 L27,34 L30,34 L30,14 Z"/>
+</vector>
+
