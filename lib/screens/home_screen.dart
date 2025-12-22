@@ -18,13 +18,26 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Dish> _allDishes = [];
   List<PlanItem> _planItems = [];
   int _globalPeople = 100;
-  String _lang = 'BOTH';
   bool _loading = true;
+
+  // Controllers for text fields to fix cursor position issue
+  late TextEditingController _globalPeopleController;
+  final Map<int, TextEditingController> _overrideControllers = {};
 
   @override
   void initState() {
     super.initState();
+    _globalPeopleController = TextEditingController(text: _globalPeople.toString());
     _loadDishes();
+  }
+
+  @override
+  void dispose() {
+    _globalPeopleController.dispose();
+    for (var controller in _overrideControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _loadDishes() async {
@@ -33,6 +46,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _allDishes = dishes;
       _loading = false;
     });
+  }
+
+  TextEditingController _getOverrideController(int index, int? value) {
+    if (!_overrideControllers.containsKey(index)) {
+      _overrideControllers[index] = TextEditingController(text: value?.toString() ?? '');
+    }
+    return _overrideControllers[index]!;
   }
 
   Future<void> _addDishToPlan() async {
@@ -53,7 +73,6 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       builder: (context) => _DishPicker(
         dishes: availableDishes,
-        lang: _lang,
         onCreateNew: () async {
           Navigator.pop(context);
           final result = await Navigator.push<bool>(
@@ -98,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _removeDish(int index) {
     setState(() {
+      _overrideControllers.remove(index);
       _planItems.removeAt(index);
     });
   }
@@ -106,8 +126,10 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       if (_planItems[index].overridePeople != null) {
         _planItems[index].overridePeople = null;
+        _overrideControllers[index]?.text = '';
       } else {
         _planItems[index].overridePeople = _globalPeople;
+        _overrideControllers[index]?.text = _globalPeople.toString();
       }
     });
   }
@@ -131,17 +153,21 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => PreviewScreen(
           planItems: _planItems,
           globalPeople: _globalPeople,
-          lang: _lang,
         ),
       ),
     );
+  }
+
+  // Helper to get display name in format: ಕನ್ನಡ (English)
+  String _getDisplayName(String nameKn, String nameEn) {
+    return '$nameKn ($nameEn)';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Plan / PDF'),
+        title: const Text('Item List'),
         actions: [
           IconButton(
             icon: const Icon(Icons.library_books),
@@ -169,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Row(
                         children: [
-                          const Text('People for all dishes: ',
+                          const Text('Number of People: ',
                               style: TextStyle(fontSize: 16)),
                           const SizedBox(width: 10),
                           SizedBox(
@@ -181,8 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 contentPadding: EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
                               ),
-                              controller: TextEditingController(
-                                  text: _globalPeople.toString()),
+                              controller: _globalPeopleController,
                               onChanged: (v) {
                                 final val = int.tryParse(v);
                                 if (val != null && val > 0) {
@@ -197,29 +222,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         'Applies to all unless overridden',
                         style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 12),
-                      // Language toggle
-                      Row(
-                        children: [
-                          _LangButton(
-                            label: 'EN',
-                            selected: _lang == 'EN',
-                            onTap: () => setState(() => _lang = 'EN'),
-                          ),
-                          const SizedBox(width: 8),
-                          _LangButton(
-                            label: 'KN',
-                            selected: _lang == 'KN',
-                            onTap: () => setState(() => _lang = 'KN'),
-                          ),
-                          const SizedBox(width: 8),
-                          _LangButton(
-                            label: 'BOTH',
-                            selected: _lang == 'BOTH',
-                            onTap: () => setState(() => _lang = 'BOTH'),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -252,9 +254,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             final item = _planItems[index];
                             final effectivePeople =
                                 item.getEffectivePeople(_globalPeople);
+                            final controller = _getOverrideController(
+                                index, item.overridePeople);
                             return ListTile(
                               title: Text(
-                                item.dish.getDisplayName(_lang),
+                                _getDisplayName(item.dish.nameKn, item.dish.nameEn),
                                 style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w500),
                               ),
@@ -269,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         onTap: () => _toggleOverride(index),
                                         child: Row(
                                           children: [
-                                            Text('Override: '),
+                                            const Text('Override: '),
                                             Text(
                                               item.hasOverride ? 'ON' : 'OFF',
                                               style: TextStyle(
@@ -289,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       padding: const EdgeInsets.only(top: 8),
                                       child: Row(
                                         children: [
-                                          const Text('Override people: '),
+                                          const Text('Number of people: '),
                                           SizedBox(
                                             width: 80,
                                             child: TextField(
@@ -303,9 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         horizontal: 8,
                                                         vertical: 6),
                                               ),
-                                              controller: TextEditingController(
-                                                  text: item.overridePeople
-                                                      .toString()),
+                                              controller: controller,
                                               onChanged: (v) {
                                                 final val = int.tryParse(v);
                                                 if (val != null && val > 0) {
@@ -358,50 +360,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _LangButton extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _LangButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? Colors.teal : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.teal),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.teal,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _DishPicker extends StatelessWidget {
   final List<Dish> dishes;
-  final String lang;
   final VoidCallback onCreateNew;
 
   const _DishPicker({
     required this.dishes,
-    required this.lang,
     required this.onCreateNew,
   });
+
+  // Helper to get display name in format: ಕನ್ನಡ (English)
+  String _getDisplayName(String nameKn, String nameEn) {
+    return '$nameKn ($nameEn)';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +423,7 @@ class _DishPicker extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final dish = dishes[index];
                       return ListTile(
-                        title: Text(dish.getDisplayName(lang)),
+                        title: Text(_getDisplayName(dish.nameKn, dish.nameEn)),
                         onTap: () => Navigator.pop(context, dish),
                       );
                     },
@@ -463,4 +434,3 @@ class _DishPicker extends StatelessWidget {
     );
   }
 }
-

@@ -6,13 +6,11 @@ import '../services/pdf_service.dart';
 class PreviewScreen extends StatefulWidget {
   final List<PlanItem> planItems;
   final int globalPeople;
-  final String lang;
 
   const PreviewScreen({
     super.key,
     required this.planItems,
     required this.globalPeople,
-    required this.lang,
   });
 
   @override
@@ -34,6 +32,13 @@ class _PreviewScreenState extends State<PreviewScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // Helper to get display name in format: ಕನ್ನಡ (English)
+  String _getDisplayName(String? nameKn, String? nameEn) {
+    final kn = nameKn ?? '';
+    final en = nameEn ?? '';
+    return '$kn ($en)';
   }
 
   Map<String, _MergedIngredient> _getMergedIngredients() {
@@ -68,7 +73,6 @@ class _PreviewScreenState extends State<PreviewScreen>
       final file = await PdfService.generateDishWisePdf(
         planItems: widget.planItems,
         globalPeople: widget.globalPeople,
-        lang: widget.lang,
       );
       await Printing.sharePdf(
         bytes: await file.readAsBytes(),
@@ -88,7 +92,6 @@ class _PreviewScreenState extends State<PreviewScreen>
       final file = await PdfService.generateOverallPdf(
         planItems: widget.planItems,
         globalPeople: widget.globalPeople,
-        lang: widget.lang,
       );
       await Printing.sharePdf(
         bytes: await file.readAsBytes(),
@@ -108,12 +111,10 @@ class _PreviewScreenState extends State<PreviewScreen>
       final dishWiseFile = await PdfService.generateDishWisePdf(
         planItems: widget.planItems,
         globalPeople: widget.globalPeople,
-        lang: widget.lang,
       );
       final overallFile = await PdfService.generateOverallPdf(
         planItems: widget.planItems,
         globalPeople: widget.globalPeople,
-        lang: widget.lang,
       );
 
       // Show options
@@ -168,14 +169,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     setState(() => _generating = false);
   }
 
-  String _getDisplayName(String? nameEn, String? nameKn) {
-    final en = nameEn ?? '';
-    final kn = nameKn ?? '';
-    if (widget.lang == 'EN') return en;
-    if (widget.lang == 'KN') return kn;
-    return '$en / $kn';
-  }
-
   String _formatQty(double qty) {
     if (qty == qty.roundToDouble()) {
       return qty.toInt().toString();
@@ -222,7 +215,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                           padding: const EdgeInsets.all(12),
                           color: Colors.teal[50],
                           child: Text(
-                            '${item.dish.getDisplayName(widget.lang)} — $effectivePeople people',
+                            '${_getDisplayName(item.dish.nameKn, item.dish.nameEn)} — $effectivePeople people',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -232,7 +225,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                         ...item.ingredients.map((ing) {
                           final qty = ing.getScaledQty(effectivePeople);
                           return ListTile(
-                            title: Text(ing.getDisplayName(widget.lang)),
+                            title: Text(_getDisplayName(ing.ingredientNameKn, ing.ingredientNameEn)),
                             trailing: Text(
                               '${_formatQty(qty)} ${ing.unit}',
                               style: const TextStyle(
@@ -253,7 +246,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                   itemBuilder: (context, index) {
                     final m = mergedList[index];
                     return ListTile(
-                      title: Text(_getDisplayName(m.nameEn, m.nameKn)),
+                      title: Text(_getDisplayName(m.nameKn, m.nameEn)),
                       subtitle: Text('Used in: ${m.usedIn.join(", ")}',
                           style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                       trailing: Text(
@@ -346,4 +339,3 @@ class _MergedIngredient {
     required this.usedIn,
   });
 }
-

@@ -3,16 +3,16 @@ import 'screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const DishPlannerApp());
+  runApp(const ItemListApp());
 }
 
-class DishPlannerApp extends StatelessWidget {
-  const DishPlannerApp({super.key});
+class ItemListApp extends StatelessWidget {
+  const ItemListApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Dish Planner',
+      title: 'ItemListApp',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

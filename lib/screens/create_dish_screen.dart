@@ -33,6 +33,16 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _nameEnController.dispose();
+    _nameKnController.dispose();
+    for (var si in _selectedIngredients) {
+      si.qtyController.dispose();
+    }
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     final ingredients = await _db.getAllIngredients();
     List<_SelectedIngredient> selected = [];
@@ -54,6 +64,11 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
       _selectedIngredients = selected;
       _loading = false;
     });
+  }
+
+  // Helper to get display name in format: ಕನ್ನಡ (English)
+  String _getDisplayName(String nameKn, String nameEn) {
+    return '$nameKn ($nameEn)';
   }
 
   void _addIngredient() async {
@@ -185,14 +200,13 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
 
   void _removeIngredient(int index) {
     setState(() {
+      _selectedIngredients[index].qtyController.dispose();
       _selectedIngredients.removeAt(index);
     });
   }
 
   void _updateQty(int index, double qty) {
-    setState(() {
-      _selectedIngredients[index].qty = qty;
-    });
+    _selectedIngredients[index].qty = qty;
   }
 
   void _updateUnit(int index, String unit) {
@@ -389,7 +403,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        '${si.ingredient.nameEn} / ${si.ingredient.nameKn}',
+                                        _getDisplayName(si.ingredient.nameKn, si.ingredient.nameEn),
                                         style: const TextStyle(
                                             fontWeight: FontWeight.w500),
                                       ),
@@ -413,10 +427,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
                                           border: OutlineInputBorder(),
                                           isDense: true,
                                         ),
-                                        controller: TextEditingController(
-                                            text: si.qty > 0
-                                                ? si.qty.toString()
-                                                : ''),
+                                        controller: si.qtyController,
                                         onChanged: (v) {
                                           final val = double.tryParse(v);
                                           if (val != null) {
@@ -465,12 +476,13 @@ class _SelectedIngredient {
   final Ingredient ingredient;
   double qty;
   String unit;
+  final TextEditingController qtyController;
 
   _SelectedIngredient({
     required this.ingredient,
     required this.qty,
     required this.unit,
-  });
+  }) : qtyController = TextEditingController(text: qty > 0 ? qty.toString() : '');
 }
 
 class _IngredientPicker extends StatefulWidget {
@@ -488,6 +500,11 @@ class _IngredientPicker extends StatefulWidget {
 
 class _IngredientPickerState extends State<_IngredientPicker> {
   String _search = '';
+
+  // Helper to get display name in format: ಕನ್ನಡ (English)
+  String _getDisplayName(String nameKn, String nameEn) {
+    return '$nameKn ($nameEn)';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -541,7 +558,7 @@ class _IngredientPickerState extends State<_IngredientPicker> {
               itemBuilder: (context, index) {
                 final ing = filtered[index];
                 return ListTile(
-                  title: Text('${ing.nameEn} / ${ing.nameKn}'),
+                  title: Text(_getDisplayName(ing.nameKn, ing.nameEn)),
                   subtitle: Text('Unit: ${ing.defaultUnit}'),
                   onTap: () => Navigator.pop(context, ing),
                 );
@@ -553,4 +570,3 @@ class _IngredientPickerState extends State<_IngredientPicker> {
     );
   }
 }
-

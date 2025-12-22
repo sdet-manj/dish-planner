@@ -5,21 +5,27 @@ import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import '../models/plan_item.dart';
-import '../models/dish_ingredient.dart';
 
 class PdfService {
+  // Use Noto Sans Kannada which supports both Kannada and English
   static Future<pw.Font> _getFont() async {
-    return await PdfGoogleFonts.notoSansRegular();
+    return await PdfGoogleFonts.notoSansKannadaRegular();
   }
 
   static Future<pw.Font> _getBoldFont() async {
-    return await PdfGoogleFonts.notoSansBold();
+    return await PdfGoogleFonts.notoSansKannadaBold();
+  }
+
+  // Helper to get display name in format: ಕನ್ನಡ (English)
+  static String _getDisplayName(String? nameKn, String? nameEn) {
+    final kn = nameKn ?? '';
+    final en = nameEn ?? '';
+    return '$kn ($en)';
   }
 
   static Future<File> generateDishWisePdf({
     required List<PlanItem> planItems,
     required int globalPeople,
-    required String lang,
   }) async {
     final font = await _getFont();
     final boldFont = await _getBoldFont();
@@ -33,8 +39,8 @@ class PdfService {
         header: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('Dish-wise Ingredients',
-                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Dish-wise Ingredients / ಖಾದ್ಯ ಪದಾರ್ಥಗಳು',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.Text('Generated: $dateStr', style: const pw.TextStyle(fontSize: 10)),
             pw.SizedBox(height: 10),
           ],
@@ -44,7 +50,7 @@ class PdfService {
 
           for (var item in planItems) {
             final effectivePeople = item.getEffectivePeople(globalPeople);
-            final dishName = item.dish.getDisplayName(lang);
+            final dishName = _getDisplayName(item.dish.nameKn, item.dish.nameEn);
 
             widgets.add(pw.Container(
               margin: const pw.EdgeInsets.only(top: 15, bottom: 5),
@@ -67,17 +73,17 @@ class PdfService {
                   children: [
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Ingredient',
+                      child: pw.Text('Ingredient / ಪದಾರ್ಥ',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Qty',
+                      child: pw.Text('Qty / ಪ್ರಮಾಣ',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Unit',
+                      child: pw.Text('Unit / ಏಕಮಾನ',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                   ],
@@ -88,7 +94,7 @@ class PdfService {
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
-                        child: pw.Text(ing.getDisplayName(lang)),
+                        child: pw.Text(_getDisplayName(ing.ingredientNameKn, ing.ingredientNameEn)),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
@@ -119,7 +125,6 @@ class PdfService {
   static Future<File> generateOverallPdf({
     required List<PlanItem> planItems,
     required int globalPeople,
-    required String lang,
   }) async {
     final font = await _getFont();
     final boldFont = await _getBoldFont();
@@ -160,8 +165,8 @@ class PdfService {
         header: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('Overall Combined Ingredients',
-                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Overall Combined Ingredients / ಒಟ್ಟು ಪದಾರ್ಥಗಳು',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.Text('Generated: $dateStr', style: const pw.TextStyle(fontSize: 10)),
             pw.SizedBox(height: 10),
           ],
@@ -181,32 +186,27 @@ class PdfService {
                   children: [
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Ingredient',
+                      child: pw.Text('Ingredient / ಪದಾರ್ಥ',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Total Qty',
+                      child: pw.Text('Total Qty / ಒಟ್ಟು',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Unit',
+                      child: pw.Text('Unit / ಏಕಮಾನ',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                   ],
                 ),
                 ...mergedList.map((m) {
-                  final name = lang == 'EN'
-                      ? m.nameEn
-                      : lang == 'KN'
-                          ? m.nameKn
-                          : '${m.nameEn} / ${m.nameKn}';
                   return pw.TableRow(
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
-                        child: pw.Text(name),
+                        child: pw.Text(_getDisplayName(m.nameKn, m.nameEn)),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
@@ -257,4 +257,3 @@ class _MergedIngredient {
     required this.usedIn,
   });
 }
-

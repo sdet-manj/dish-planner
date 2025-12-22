@@ -18,7 +18,6 @@ class _MastersScreenState extends State<MastersScreen>
   final _db = DatabaseHelper.instance;
   List<Ingredient> _ingredients = [];
   List<Dish> _dishes = [];
-  String _lang = 'BOTH';
   bool _loading = true;
 
   @override
@@ -42,6 +41,11 @@ class _MastersScreenState extends State<MastersScreen>
       _dishes = dishes;
       _loading = false;
     });
+  }
+
+  // Helper to get display name in format: ಕನ್ನಡ (English)
+  String _getDisplayName(String nameKn, String nameEn) {
+    return '$nameKn ($nameEn)';
   }
 
   void _showAddIngredientDialog() {
@@ -290,83 +294,51 @@ class _MastersScreenState extends State<MastersScreen>
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : TabBarView(
+              controller: _tabController,
               children: [
-                // Language toggle
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      _LangButton(
-                        label: 'EN',
-                        selected: _lang == 'EN',
-                        onTap: () => setState(() => _lang = 'EN'),
+                // Ingredients tab
+                _ingredients.isEmpty
+                    ? const Center(child: Text('No ingredients'))
+                    : ListView.separated(
+                        itemCount: _ingredients.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final ing = _ingredients[index];
+                          return ListTile(
+                            title: Text(_getDisplayName(ing.nameKn, ing.nameEn)),
+                            subtitle: Text('Unit: ${ing.defaultUnit}'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _showEditIngredientDialog(ing),
+                          );
+                        },
                       ),
-                      const SizedBox(width: 8),
-                      _LangButton(
-                        label: 'KN',
-                        selected: _lang == 'KN',
-                        onTap: () => setState(() => _lang = 'KN'),
+                // Dishes tab
+                _dishes.isEmpty
+                    ? const Center(child: Text('No dishes'))
+                    : ListView.separated(
+                        itemCount: _dishes.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final dish = _dishes[index];
+                          return ListTile(
+                            title: Text(_getDisplayName(dish.nameKn, dish.nameEn)),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      CreateDishScreen(editDish: dish),
+                                ),
+                              );
+                              _loadData();
+                            },
+                          );
+                        },
                       ),
-                      const SizedBox(width: 8),
-                      _LangButton(
-                        label: 'BOTH',
-                        selected: _lang == 'BOTH',
-                        onTap: () => setState(() => _lang = 'BOTH'),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Ingredients tab
-                      _ingredients.isEmpty
-                          ? const Center(child: Text('No ingredients'))
-                          : ListView.separated(
-                              itemCount: _ingredients.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final ing = _ingredients[index];
-                                return ListTile(
-                                  title: Text(ing.getDisplayName(_lang)),
-                                  subtitle: Text('Unit: ${ing.defaultUnit}'),
-                                  trailing: const Icon(Icons.chevron_right),
-                                  onTap: () => _showEditIngredientDialog(ing),
-                                );
-                              },
-                            ),
-                      // Dishes tab
-                      _dishes.isEmpty
-                          ? const Center(child: Text('No dishes'))
-                          : ListView.separated(
-                              itemCount: _dishes.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final dish = _dishes[index];
-                                return ListTile(
-                                  title: Text(dish.getDisplayName(_lang)),
-                                  trailing: const Icon(Icons.chevron_right),
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            CreateDishScreen(editDish: dish),
-                                      ),
-                                    );
-                                    _loadData();
-                                  },
-                                );
-                              },
-                            ),
-                    ],
-                  ),
-                ),
               ],
             ),
       floatingActionButton: FloatingActionButton(
@@ -386,38 +358,3 @@ class _MastersScreenState extends State<MastersScreen>
     );
   }
 }
-
-class _LangButton extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _LangButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? Colors.teal : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.teal),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.teal,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
