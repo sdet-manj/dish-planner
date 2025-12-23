@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/dish.dart';
+import '../models/ingredient.dart';
 import '../models/plan_item.dart';
 import 'masters_screen.dart';
 import 'create_dish_screen.dart';
@@ -55,8 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return _overrideControllers[index]!;
   }
 
-  Future<void> _addDishToPlan() async {
-    // Show dish picker
+  Future<void> _addDishesToPlan() async {
+    // Show multi-select dish picker
     final availableDishes = _allDishes
         .where((d) => !_planItems.any((p) => p.dish.id == d.id))
         .toList();
@@ -68,10 +69,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final selected = await showModalBottomSheet<Dish>(
+    final selectedDishes = await showModalBottomSheet<List<Dish>>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => _DishPicker(
+      builder: (context) => _MultiDishPicker(
         dishes: availableDishes,
         onCreateNew: () async {
           Navigator.pop(context);
@@ -86,32 +87,22 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    if (selected != null) {
-      final ingredients = await _db.getDishIngredients(selected.id!);
-      if (ingredients.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${selected.nameEn} has no ingredients. Add ingredients first.'),
-            action: SnackBarAction(
-              label: 'Add',
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CreateDishScreen(editDish: selected),
-                  ),
-                );
-                _loadDishes();
-              },
+    if (selectedDishes != null && selectedDishes.isNotEmpty) {
+      for (var dish in selectedDishes) {
+        final ingredients = await _db.getDishIngredients(dish.id!);
+        if (ingredients.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${dish.nameEn} has no ingredients. Skipped.'),
             ),
-          ),
-        );
-        return;
+          );
+          continue;
+        }
+        setState(() {
+          _planItems.add(PlanItem(dish: dish, ingredients: ingredients));
+        });
       }
-      setState(() {
-        _planItems.add(PlanItem(dish: selected, ingredients: ingredients));
-      });
     }
   }
 
@@ -163,22 +154,123 @@ class _HomeScreenState extends State<HomeScreen> {
     return '$nameKn ($nameEn)';
   }
 
+  void _showAddIngredientDialog() {
+    final enController = TextEditingController();
+    final knController = TextEditingController();
+    String unit = 'kg';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Ingredient'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: enController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (English)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: knController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (Kannada)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: unit,
+                  decoration: const InputDecoration(
+                    labelText: 'Default Unit',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['kg', 'g', 'L', 'ml', 'pcs']
+                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                      .toList(),
+                  onChanged: (v) {
+                    setDialogState(() => unit = v ?? 'kg');
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (enController.text.isEmpty || knController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill both names')),
+                  );
+                  return;
+                }
+                await _db.insertIngredient(Ingredient(
+                  nameEn: enController.text.trim(),
+                  nameKn: knController.text.trim(),
+                  defaultUnit: unit,
+                ));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Ingredient added')),
+                );
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Item List'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.library_books),
-            tooltip: 'Masters',
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MastersScreen()),
-              );
-              _loadDishes();
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'masters') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MastersScreen()),
+                );
+                _loadDishes();
+              } else if (value == 'add_ingredient') {
+                _showAddIngredientDialog();
+              }
             },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'masters',
+                child: Row(
+                  children: [
+                    Icon(Icons.library_books, color: Colors.teal),
+                    SizedBox(width: 8),
+                    Text('Masters (Dishes & Ingredients)'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'add_ingredient',
+                child: Row(
+                  children: [
+                    Icon(Icons.add_circle_outline, color: Colors.teal),
+                    SizedBox(width: 8),
+                    Text('Add Ingredient'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -352,7 +444,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _addDishToPlan,
+        onPressed: _addDishesToPlan,
         backgroundColor: Colors.teal,
         child: const Icon(Icons.add),
       ),
@@ -360,24 +452,54 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _DishPicker extends StatelessWidget {
+// Multi-select dish picker
+class _MultiDishPicker extends StatefulWidget {
   final List<Dish> dishes;
   final VoidCallback onCreateNew;
 
-  const _DishPicker({
+  const _MultiDishPicker({
     required this.dishes,
     required this.onCreateNew,
   });
+
+  @override
+  State<_MultiDishPicker> createState() => _MultiDishPickerState();
+}
+
+class _MultiDishPickerState extends State<_MultiDishPicker> {
+  final Set<int> _selectedIds = {};
 
   // Helper to get display name in format: ಕನ್ನಡ (English)
   String _getDisplayName(String nameKn, String nameEn) {
     return '$nameKn ($nameEn)';
   }
 
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _selectAll() {
+    setState(() {
+      _selectedIds.addAll(widget.dishes.map((d) => d.id!));
+    });
+  }
+
+  void _deselectAll() {
+    setState(() {
+      _selectedIds.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
+      initialChildSize: 0.7,
       minChildSize: 0.3,
       maxChildSize: 0.9,
       expand: false,
@@ -388,20 +510,40 @@ class _DishPicker extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Pick a dish',
+                const Text('Select Dishes',
                     style:
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 TextButton.icon(
-                  onPressed: onCreateNew,
+                  onPressed: widget.onCreateNew,
                   icon: const Icon(Icons.add),
                   label: const Text('Create new'),
                 ),
               ],
             ),
           ),
+          // Select all / Deselect all buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: _selectAll,
+                  child: const Text('Select All'),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: _deselectAll,
+                  child: const Text('Deselect All'),
+                ),
+                const Spacer(),
+                Text('${_selectedIds.length} selected',
+                    style: TextStyle(color: Colors.grey[600])),
+              ],
+            ),
+          ),
           const Divider(height: 1),
           Expanded(
-            child: dishes.isEmpty
+            child: widget.dishes.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -410,7 +552,7 @@ class _DishPicker extends StatelessWidget {
                             style: TextStyle(color: Colors.grey[600])),
                         const SizedBox(height: 8),
                         ElevatedButton(
-                          onPressed: onCreateNew,
+                          onPressed: widget.onCreateNew,
                           child: const Text('Create a dish'),
                         ),
                       ],
@@ -418,16 +560,50 @@ class _DishPicker extends StatelessWidget {
                   )
                 : ListView.separated(
                     controller: scrollController,
-                    itemCount: dishes.length,
+                    itemCount: widget.dishes.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, index) {
-                      final dish = dishes[index];
+                      final dish = widget.dishes[index];
+                      final isSelected = _selectedIds.contains(dish.id);
                       return ListTile(
+                        leading: Checkbox(
+                          value: isSelected,
+                          onChanged: (_) => _toggleSelection(dish.id!),
+                          activeColor: Colors.teal,
+                        ),
                         title: Text(_getDisplayName(dish.nameKn, dish.nameEn)),
-                        onTap: () => Navigator.pop(context, dish),
+                        onTap: () => _toggleSelection(dish.id!),
                       );
                     },
                   ),
+          ),
+          // Add selected button
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _selectedIds.isEmpty
+                    ? null
+                    : () {
+                        final selected = widget.dishes
+                            .where((d) => _selectedIds.contains(d.id))
+                            .toList();
+                        Navigator.pop(context, selected);
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  _selectedIds.isEmpty
+                      ? 'Select dishes to add'
+                      : 'Add ${_selectedIds.length} dish${_selectedIds.length > 1 ? 'es' : ''}',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
           ),
         ],
       ),

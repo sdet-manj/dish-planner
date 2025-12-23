@@ -41,6 +41,22 @@ class _PreviewScreenState extends State<PreviewScreen>
     return '$kn ($en)';
   }
 
+  // Convert units: g→kg if >1000, ml→L if >1000
+  Map<String, dynamic> _convertUnit(double qty, String unit) {
+    double convertedQty = qty;
+    String convertedUnit = unit;
+
+    if (unit == 'g' && qty >= 1000) {
+      convertedQty = qty / 1000;
+      convertedUnit = 'kg';
+    } else if (unit == 'ml' && qty >= 1000) {
+      convertedQty = qty / 1000;
+      convertedUnit = 'L';
+    }
+
+    return {'qty': convertedQty, 'unit': convertedUnit};
+  }
+
   Map<String, _MergedIngredient> _getMergedIngredients() {
     final Map<String, _MergedIngredient> merged = {};
 
@@ -173,7 +189,8 @@ class _PreviewScreenState extends State<PreviewScreen>
     if (qty == qty.roundToDouble()) {
       return qty.toInt().toString();
     }
-    return qty.toStringAsFixed(2);
+    // Round to 2 decimal places and remove trailing zeros
+    return qty.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
   @override
@@ -223,11 +240,14 @@ class _PreviewScreenState extends State<PreviewScreen>
                           ),
                         ),
                         ...item.ingredients.map((ing) {
-                          final qty = ing.getScaledQty(effectivePeople);
+                          final rawQty = ing.getScaledQty(effectivePeople);
+                          final converted = _convertUnit(rawQty, ing.unit);
+                          final qty = converted['qty'] as double;
+                          final unit = converted['unit'] as String;
                           return ListTile(
                             title: Text(_getDisplayName(ing.ingredientNameKn, ing.ingredientNameEn)),
                             trailing: Text(
-                              '${_formatQty(qty)} ${ing.unit}',
+                              '${_formatQty(qty)} $unit',
                               style: const TextStyle(
                                   fontSize: 14, fontWeight: FontWeight.w500),
                             ),
@@ -245,12 +265,15 @@ class _PreviewScreenState extends State<PreviewScreen>
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final m = mergedList[index];
+                    final converted = _convertUnit(m.totalQty, m.unit);
+                    final qty = converted['qty'] as double;
+                    final unit = converted['unit'] as String;
                     return ListTile(
                       title: Text(_getDisplayName(m.nameKn, m.nameEn)),
                       subtitle: Text('Used in: ${m.usedIn.join(", ")}',
                           style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                       trailing: Text(
-                        '${_formatQty(m.totalQty)} ${m.unit}',
+                        '${_formatQty(qty)} $unit',
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w500),
                       ),

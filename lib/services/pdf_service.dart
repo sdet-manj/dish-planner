@@ -7,13 +7,36 @@ import 'package:intl/intl.dart';
 import '../models/plan_item.dart';
 
 class PdfService {
-  // Use Noto Sans Kannada which supports both Kannada and English
-  static Future<pw.Font> _getFont() async {
-    return await PdfGoogleFonts.notoSansKannadaRegular();
-  }
+  static pw.Font? _kannadaFont;
+  static pw.Font? _kannadaBoldFont;
+  static pw.Font? _fallbackFont;
 
-  static Future<pw.Font> _getBoldFont() async {
-    return await PdfGoogleFonts.notoSansKannadaBold();
+  // Load fonts with proper Kannada support
+  static Future<void> _loadFonts() async {
+    if (_kannadaFont == null) {
+      try {
+        // Use Noto Sans Devanagari which has better Indic script support
+        _kannadaFont = await PdfGoogleFonts.notoSansDevanagariRegular();
+        _kannadaBoldFont = await PdfGoogleFonts.notoSansDevanagariBold();
+      } catch (e) {
+        // Try Noto Sans Kannada
+        try {
+          _kannadaFont = await PdfGoogleFonts.notoSansKannadaRegular();
+          _kannadaBoldFont = await PdfGoogleFonts.notoSansKannadaBold();
+        } catch (e2) {
+          // Final fallback
+          _kannadaFont = await PdfGoogleFonts.notoSansRegular();
+          _kannadaBoldFont = await PdfGoogleFonts.notoSansBold();
+        }
+      }
+      
+      // Load fallback font for mixed content
+      try {
+        _fallbackFont = await PdfGoogleFonts.notoSansKannadaRegular();
+      } catch (e) {
+        _fallbackFont = null;
+      }
+    }
   }
 
   // Helper to get display name in format: ಕನ್ನಡ (English)
@@ -23,24 +46,55 @@ class PdfService {
     return '$kn ($en)';
   }
 
+  // Convert units: g→kg if >1000, ml→L if >1000
+  static Map<String, dynamic> _convertUnit(double qty, String unit) {
+    double convertedQty = qty;
+    String convertedUnit = unit;
+
+    if (unit == 'g' && qty >= 1000) {
+      convertedQty = qty / 1000;
+      convertedUnit = 'kg';
+    } else if (unit == 'ml' && qty >= 1000) {
+      convertedQty = qty / 1000;
+      convertedUnit = 'L';
+    }
+
+    return {'qty': convertedQty, 'unit': convertedUnit};
+  }
+
+  static String _formatQty(double qty) {
+    if (qty == qty.roundToDouble()) {
+      return qty.toInt().toString();
+    }
+    // Round to 2 decimal places
+    return qty.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+  }
+
   static Future<File> generateDishWisePdf({
     required List<PlanItem> planItems,
     required int globalPeople,
   }) async {
-    final font = await _getFont();
-    final boldFont = await _getBoldFont();
+    await _loadFonts();
+    
     final pdf = pw.Document();
     final dateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
+
+    // Build theme with font fallback
+    final theme = pw.ThemeData.withFont(
+      base: _kannadaFont,
+      bold: _kannadaBoldFont,
+      fontFallback: _fallbackFont != null ? [_fallbackFont!] : null,
+    );
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: font, bold: boldFont),
+        theme: theme,
         header: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('Dish-wise Ingredients / ಖಾದ್ಯ ಪದಾರ್ಥಗಳು',
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Dish-wise Ingredients',
+                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
             pw.Text('Generated: $dateStr', style: const pw.TextStyle(fontSize: 10)),
             pw.SizedBox(height: 10),
           ],
@@ -55,7 +109,7 @@ class PdfService {
             widgets.add(pw.Container(
               margin: const pw.EdgeInsets.only(top: 15, bottom: 5),
               child: pw.Text(
-                '$dishName — $effectivePeople people',
+                '$dishName - $effectivePeople people',
                 style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
               ),
             ));
@@ -73,23 +127,27 @@ class PdfService {
                   children: [
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Ingredient / ಪದಾರ್ಥ',
+                      child: pw.Text('Ingredient',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Qty / ಪ್ರಮಾಣ',
+                      child: pw.Text('Qty',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Unit / ಏಕಮಾನ',
+                      child: pw.Text('Unit',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                   ],
                 ),
                 ...item.ingredients.map((ing) {
-                  final qty = ing.getScaledQty(effectivePeople);
+                  final rawQty = ing.getScaledQty(effectivePeople);
+                  final converted = _convertUnit(rawQty, ing.unit);
+                  final qty = converted['qty'] as double;
+                  final unit = converted['unit'] as String;
+                  
                   return pw.TableRow(
                     children: [
                       pw.Padding(
@@ -102,7 +160,7 @@ class PdfService {
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
-                        child: pw.Text(ing.unit),
+                        child: pw.Text(unit),
                       ),
                     ],
                   );
@@ -126,8 +184,8 @@ class PdfService {
     required List<PlanItem> planItems,
     required int globalPeople,
   }) async {
-    final font = await _getFont();
-    final boldFont = await _getBoldFont();
+    await _loadFonts();
+    
     final pdf = pw.Document();
     final dateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
 
@@ -158,15 +216,22 @@ class PdfService {
     final mergedList = merged.values.toList()
       ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
 
+    // Build theme with font fallback
+    final theme = pw.ThemeData.withFont(
+      base: _kannadaFont,
+      bold: _kannadaBoldFont,
+      fontFallback: _fallbackFont != null ? [_fallbackFont!] : null,
+    );
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: font, bold: boldFont),
+        theme: theme,
         header: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('Overall Combined Ingredients / ಒಟ್ಟು ಪದಾರ್ಥಗಳು',
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Overall Combined Ingredients',
+                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
             pw.Text('Generated: $dateStr', style: const pw.TextStyle(fontSize: 10)),
             pw.SizedBox(height: 10),
           ],
@@ -186,22 +251,26 @@ class PdfService {
                   children: [
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Ingredient / ಪದಾರ್ಥ',
+                      child: pw.Text('Ingredient',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Total Qty / ಒಟ್ಟು',
+                      child: pw.Text('Total Qty',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Unit / ಏಕಮಾನ',
+                      child: pw.Text('Unit',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                   ],
                 ),
                 ...mergedList.map((m) {
+                  final converted = _convertUnit(m.totalQty, m.unit);
+                  final qty = converted['qty'] as double;
+                  final unit = converted['unit'] as String;
+                  
                   return pw.TableRow(
                     children: [
                       pw.Padding(
@@ -210,11 +279,11 @@ class PdfService {
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
-                        child: pw.Text(_formatQty(m.totalQty)),
+                        child: pw.Text(_formatQty(qty)),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
-                        child: pw.Text(m.unit),
+                        child: pw.Text(unit),
                       ),
                     ],
                   );
@@ -230,13 +299,6 @@ class PdfService {
     final file = File('${output.path}/Overall_$dateStr.pdf');
     await file.writeAsBytes(await pdf.save());
     return file;
-  }
-
-  static String _formatQty(double qty) {
-    if (qty == qty.roundToDouble()) {
-      return qty.toInt().toString();
-    }
-    return qty.toStringAsFixed(2);
   }
 }
 
