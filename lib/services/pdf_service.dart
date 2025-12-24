@@ -16,8 +16,8 @@ class PdfService {
   static Future<void> _loadFonts() async {
     if (_kannadaFont == null) {
       try {
-        // Try PdfGoogleFonts which has better text shaping support
-        _kannadaFont = await PdfGoogleFonts.notoSansKannadaRegular();
+        // Try NotoSerifKannada which has better glyph composition for complex scripts
+        _kannadaFont = await PdfGoogleFonts.notoSerifKannadaRegular();
         _englishFont = await PdfGoogleFonts.notoSansRegular();
       } catch (e) {
         // Fallback to local font if network unavailable
@@ -38,11 +38,12 @@ class PdfService {
     return _englishFont;
   }
 
-  // Helper to get display name in format: ಕನ್ನಡ (English)
+  // Helper to get display name in format: English (ಕನ್ನಡ)
+  // English first tends to render better in PDFs with complex scripts
   static String _getDisplayName(String? nameKn, String? nameEn) {
     final kn = nameKn ?? '';
     final en = nameEn ?? '';
-    return '$kn ($en)';
+    return '$en ($kn)';
   }
 
   // Convert units: g→kg if >1000, ml→L if >1000
@@ -369,7 +370,7 @@ class PdfService {
             padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             color: headerColor,
             child: pw.Text(
-              '$titleKn ($titleEn)',
+              '$titleEn ($titleKn)',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
             ),
           ),
