@@ -19,7 +19,43 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path, 
+      version: 2, 
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+    );
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add category column to ingredients table
+      await db.execute('ALTER TABLE ingredients ADD COLUMN category TEXT DEFAULT "dinasi"');
+      // Update existing ingredients with appropriate categories
+      await _updateExistingCategories(db);
+    }
+  }
+
+  Future _updateExistingCategories(Database db) async {
+    // Update vegetables (NOT including Onion and Garlic - they go to dinasi/groceries)
+    final vegetables = ['Tomato', 'Potato', 'Carrot', 'Beans', 'Peas', 
+                        'Capsicum', 'Brinjal', 'Drumstick', 'Ginger', 
+                        'Green chilli', 'Coriander leaves', 'Curry leaves', 'Mint leaves', 'Lemon'];
+    for (var veg in vegetables) {
+      await db.execute('UPDATE ingredients SET category = ? WHERE nameEn = ?', ['vegetable', veg]);
+    }
+    
+    // Update dairy - only Milk and Curd
+    final dairy = ['Milk', 'Curd'];
+    for (var d in dairy) {
+      await db.execute('UPDATE ingredients SET category = ? WHERE nameEn = ?', ['dairy', d]);
+    }
+    
+    // Ensure Onion, Garlic, Paneer, Ghee, Butter are in dinasi (groceries)
+    final groceries = ['Onion', 'Garlic', 'Paneer', 'Ghee', 'Butter'];
+    for (var g in groceries) {
+      await db.execute('UPDATE ingredients SET category = ? WHERE nameEn = ?', ['dinasi', g]);
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -28,7 +64,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nameEn TEXT NOT NULL,
         nameKn TEXT NOT NULL,
-        defaultUnit TEXT DEFAULT 'kg'
+        defaultUnit TEXT DEFAULT 'kg',
+        category TEXT DEFAULT 'dinasi'
       )
     ''');
 
@@ -58,62 +95,69 @@ class DatabaseHelper {
 
   Future _insertDefaults(Database db) async {
     final defaultIngredients = [
-      {'nameEn': 'Rice', 'nameKn': 'ಅಕ್ಕಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Urad dal', 'nameKn': 'ಉದ್ದಿನ ಬೇಳೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Toor dal', 'nameKn': 'ತೊಗರಿ ಬೇಳೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Chana dal', 'nameKn': 'ಕಡಲೆ ಬೇಳೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Moong dal', 'nameKn': 'ಹೆಸರು ಬೇಳೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Salt', 'nameKn': 'ಉಪ್ಪು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Oil', 'nameKn': 'ಎಣ್ಣೆ', 'defaultUnit': 'L'},
-      {'nameEn': 'Turmeric', 'nameKn': 'ಅರಿಶಿನ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Chilli powder', 'nameKn': 'ಖಾರದ ಪುಡಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Coriander powder', 'nameKn': 'ಕೊತ್ತಂಬರಿ ಪುಡಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Cumin powder', 'nameKn': 'ಜೀರಿಗೆ ಪುಡಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Garam masala', 'nameKn': 'ಗರಂ ಮಸಾಲೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Mustard seeds', 'nameKn': 'ಸಾಸಿವೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Cumin seeds', 'nameKn': 'ಜೀರಿಗೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Coriander leaves', 'nameKn': 'ಕೊತ್ತಂಬರಿ ಸೊಪ್ಪು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Onion', 'nameKn': 'ಈರುಳ್ಳಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Tomato', 'nameKn': 'ಟೊಮೆಟೊ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Potato', 'nameKn': 'ಆಲೂಗಡ್ಡೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Carrot', 'nameKn': 'ಗಜ್ಜರಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Beans', 'nameKn': 'ಬೀನ್ಸ್', 'defaultUnit': 'kg'},
-      {'nameEn': 'Peas', 'nameKn': 'ಬಟಾಣಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Capsicum', 'nameKn': 'ದೊಣ್ಣೆ ಮೆಣಸಿನಕಾಯಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Brinjal', 'nameKn': 'ಬದನೆಕಾಯಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Drumstick', 'nameKn': 'ನುಗ್ಗೆಕಾಯಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Garlic', 'nameKn': 'ಬೆಳ್ಳುಳ್ಳಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Ginger', 'nameKn': 'ಶುಂಠಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Green chilli', 'nameKn': 'ಹಸಿ ಮೆಣಸಿನಕಾಯಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Ghee', 'nameKn': 'ತುಪ್ಪ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Butter', 'nameKn': 'ಬೆಣ್ಣೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Sugar', 'nameKn': 'ಸಕ್ಕರೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Jaggery', 'nameKn': 'ಬೆಲ್ಲ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Tamarind', 'nameKn': 'ಹುಣಸೆಹಣ್ಣು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Coconut', 'nameKn': 'ತೆಂಗಿನಕಾಯಿ', 'defaultUnit': 'pcs'},
-      {'nameEn': 'Coconut milk', 'nameKn': 'ತೆಂಗಿನ ಹಾಲು', 'defaultUnit': 'L'},
-      {'nameEn': 'Curry leaves', 'nameKn': 'ಕರಿಬೇವು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Fenugreek seeds', 'nameKn': 'ಮೆಂತ್ಯ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Asafoetida', 'nameKn': 'ಇಂಗು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Bay leaves', 'nameKn': 'ಬಿರಿಯಾನಿ ಎಲೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Cinnamon', 'nameKn': 'ದಾಲ್ಚಿನಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Cardamom', 'nameKn': 'ಏಲಕ್ಕಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Cloves', 'nameKn': 'ಲವಂಗ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Black pepper', 'nameKn': 'ಕಾಳು ಮೆಣಸು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Milk', 'nameKn': 'ಹಾಲು', 'defaultUnit': 'L'},
-      {'nameEn': 'Curd', 'nameKn': 'ಮೊಸರು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Paneer', 'nameKn': 'ಪನೀರ್', 'defaultUnit': 'kg'},
-      {'nameEn': 'Cashew', 'nameKn': 'ಗೋಡಂಬಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Raisins', 'nameKn': 'ಒಣ ದ್ರಾಕ್ಷಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Almonds', 'nameKn': 'ಬಾದಾಮಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Saffron', 'nameKn': 'ಕೇಸರಿ', 'defaultUnit': 'g'},
-      {'nameEn': 'Wheat flour', 'nameKn': 'ಗೋಧಿ ಹಿಟ್ಟು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Besan', 'nameKn': 'ಕಡಲೆ ಹಿಟ್ಟು', 'defaultUnit': 'kg'},
-      {'nameEn': 'Rava', 'nameKn': 'ರವೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Poha', 'nameKn': 'ಅವಲಕ್ಕಿ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Vermicelli', 'nameKn': 'ಶಾವಿಗೆ', 'defaultUnit': 'kg'},
-      {'nameEn': 'Lemon', 'nameKn': 'ನಿಂಬೆಹಣ್ಣು', 'defaultUnit': 'pcs'},
-      {'nameEn': 'Mint leaves', 'nameKn': 'ಪುದೀನ ಸೊಪ್ಪು', 'defaultUnit': 'kg'},
+      // DINASI - Groceries/Provisions
+      {'nameEn': 'Rice', 'nameKn': 'ಅಕ್ಕಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Urad dal', 'nameKn': 'ಉದ್ದಿನ ಬೇಳೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Toor dal', 'nameKn': 'ತೊಗರಿ ಬೇಳೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Chana dal', 'nameKn': 'ಕಡಲೆ ಬೇಳೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Moong dal', 'nameKn': 'ಹೆಸರು ಬೇಳೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Salt', 'nameKn': 'ಉಪ್ಪು', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Oil', 'nameKn': 'ಎಣ್ಣೆ', 'defaultUnit': 'L', 'category': 'dinasi'},
+      {'nameEn': 'Turmeric', 'nameKn': 'ಅರಿಶಿನ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Chilli powder', 'nameKn': 'ಖಾರದ ಪುಡಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Coriander powder', 'nameKn': 'ಕೊತ್ತಂಬರಿ ಪುಡಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Cumin powder', 'nameKn': 'ಜೀರಿಗೆ ಪುಡಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Garam masala', 'nameKn': 'ಗರಂ ಮಸಾಲೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Mustard seeds', 'nameKn': 'ಸಾಸಿವೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Cumin seeds', 'nameKn': 'ಜೀರಿಗೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Sugar', 'nameKn': 'ಸಕ್ಕರೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Jaggery', 'nameKn': 'ಬೆಲ್ಲ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Tamarind', 'nameKn': 'ಹುಣಸೆಹಣ್ಣು', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Coconut', 'nameKn': 'ತೆಂಗಿನಕಾಯಿ', 'defaultUnit': 'pcs', 'category': 'dinasi'},
+      {'nameEn': 'Coconut milk', 'nameKn': 'ತೆಂಗಿನ ಹಾಲು', 'defaultUnit': 'L', 'category': 'dinasi'},
+      {'nameEn': 'Fenugreek seeds', 'nameKn': 'ಮೆಂತ್ಯ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Asafoetida', 'nameKn': 'ಇಂಗು', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Bay leaves', 'nameKn': 'ಬಿರಿಯಾನಿ ಎಲೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Cinnamon', 'nameKn': 'ದಾಲ್ಚಿನಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Cardamom', 'nameKn': 'ಏಲಕ್ಕಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Cloves', 'nameKn': 'ಲವಂಗ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Black pepper', 'nameKn': 'ಕಾಳು ಮೆಣಸು', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Cashew', 'nameKn': 'ಗೋಡಂಬಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Raisins', 'nameKn': 'ಒಣ ದ್ರಾಕ್ಷಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Almonds', 'nameKn': 'ಬಾದಾಮಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Saffron', 'nameKn': 'ಕೇಸರಿ', 'defaultUnit': 'g', 'category': 'dinasi'},
+      {'nameEn': 'Wheat flour', 'nameKn': 'ಗೋಧಿ ಹಿಟ್ಟು', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Besan', 'nameKn': 'ಕಡಲೆ ಹಿಟ್ಟು', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Rava', 'nameKn': 'ರವೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Poha', 'nameKn': 'ಅವಲಕ್ಕಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Vermicelli', 'nameKn': 'ಶಾವಿಗೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      
+      // GROCERIES - Onion, Garlic, Paneer, Ghee, Butter moved here
+      {'nameEn': 'Onion', 'nameKn': 'ಈರುಳ್ಳಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Garlic', 'nameKn': 'ಬೆಳ್ಳುಳ್ಳಿ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Paneer', 'nameKn': 'ಪನೀರ್', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Ghee', 'nameKn': 'ತುಪ್ಪ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      {'nameEn': 'Butter', 'nameKn': 'ಬೆಣ್ಣೆ', 'defaultUnit': 'kg', 'category': 'dinasi'},
+      
+      // VEGETABLES
+      {'nameEn': 'Tomato', 'nameKn': 'ಟೊಮೆಟೊ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Potato', 'nameKn': 'ಆಲೂಗಡ್ಡೆ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Carrot', 'nameKn': 'ಗಜ್ಜರಿ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Beans', 'nameKn': 'ಬೀನ್ಸ್', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Peas', 'nameKn': 'ಬಟಾಣಿ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Capsicum', 'nameKn': 'ದೊಣ್ಣೆ ಮೆಣಸಿನಕಾಯಿ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Brinjal', 'nameKn': 'ಬದನೆಕಾಯಿ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Drumstick', 'nameKn': 'ನುಗ್ಗೆಕಾಯಿ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Ginger', 'nameKn': 'ಶುಂಠಿ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Green chilli', 'nameKn': 'ಹಸಿ ಮೆಣಸಿನಕಾಯಿ', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Coriander leaves', 'nameKn': 'ಕೊತ್ತಂಬರಿ ಸೊಪ್ಪು', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Curry leaves', 'nameKn': 'ಕರಿಬೇವು', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Mint leaves', 'nameKn': 'ಪುದೀನ ಸೊಪ್ಪು', 'defaultUnit': 'kg', 'category': 'vegetable'},
+      {'nameEn': 'Lemon', 'nameKn': 'ನಿಂಬೆಹಣ್ಣು', 'defaultUnit': 'pcs', 'category': 'vegetable'},
+      
+      // DAIRY - Only Milk and Curd
+      {'nameEn': 'Milk', 'nameKn': 'ಹಾಲು', 'defaultUnit': 'L', 'category': 'dairy'},
+      {'nameEn': 'Curd', 'nameKn': 'ಮೊಸರು', 'defaultUnit': 'kg', 'category': 'dairy'},
     ];
     for (var ing in defaultIngredients) {
       await db.insert('ingredients', ing);
@@ -190,7 +234,7 @@ class DatabaseHelper {
   Future<List<DishIngredient>> getDishIngredients(int dishId) async {
     final db = await database;
     final result = await db.rawQuery('''
-      SELECT di.*, i.nameEn as ingredientNameEn, i.nameKn as ingredientNameKn
+      SELECT di.*, i.nameEn as ingredientNameEn, i.nameKn as ingredientNameKn, i.category as ingredientCategory
       FROM dish_ingredients di
       JOIN ingredients i ON di.ingredientId = i.id
       WHERE di.dishId = ?

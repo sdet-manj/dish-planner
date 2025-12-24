@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp"
+    android:height="72dp"
+    android:viewportWidth="72"
+    android:viewportHeight="72">
+    
+    <!-- Background -->
+    <path
+        android:fillColor="#FFCC80"
+        android:pathData="M36,36m-36,0a36,36 0,1 1,72 0a36,36 0,1 1,-72 0"/>
+    
+    <!-- Inner circle -->
+    <path
+        android:fillColor="#FFF3E0"
+        android:pathData="M36,36m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"/>
+    
+    <!-- OM Symbol -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M22,40 Q18,37 20,32 Q22,27 28,26 Q34,25 38,29 L35,33 Q32,30 28,31 Q24,32 23,36 Q22,40 25,42 L27,46 Q21,47 22,40z"/>
+    
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M40,24 Q44,21 50,22 Q56,23 58,28 Q60,33 58,38 L54,36 Q56,33 55,29 Q54,25 49,25 Q45,25 43,28 L39,26 Q40,22 40,24z"/>
+    
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M56,32 Q62,30 65,35 Q68,40 65,48 Q62,55 55,58 L55,53 Q60,51 61,46 Q62,40 59,36 Q56,33 55,35z"/>
+    
+    <!-- Bindu -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M58,18 m-3,0 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0"/>
+    
+    <!-- Crescent -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M52,14 Q56,10 62,12 Q60,16 56,16 Q52,16 52,14z"/>
+    
+</vector>
+

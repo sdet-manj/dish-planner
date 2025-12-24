@@ -8,6 +8,7 @@ class DishIngredient {
   // For display (joined data)
   final String? ingredientNameEn;
   final String? ingredientNameKn;
+  final String? ingredientCategory; // dinasi, vegetable, dairy
 
   DishIngredient({
     this.id,
@@ -17,6 +18,7 @@ class DishIngredient {
     required this.unit,
     this.ingredientNameEn,
     this.ingredientNameKn,
+    this.ingredientCategory,
   });
 
   Map<String, dynamic> toMap() => {
@@ -35,6 +37,7 @@ class DishIngredient {
         unit: map['unit'],
         ingredientNameEn: map['ingredientNameEn'],
         ingredientNameKn: map['ingredientNameKn'],
+        ingredientCategory: map['ingredientCategory'] ?? map['category'],
       );
 
   double getScaledQty(int people) => qtyFor100 * (people / 100);

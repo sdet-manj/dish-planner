@@ -8,6 +8,7 @@ import '../models/extra_ingredient.dart';
 import 'masters_screen.dart';
 import 'create_dish_screen.dart';
 import 'preview_screen.dart';
+import 'dishes_preview_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -232,7 +233,28 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _goToPreview() {
+  // Button 1: Dishes List Preview (just dish names)
+  void _goToDishesPreview() {
+    if (_planItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one dish')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DishesPreviewScreen(
+          planItems: _planItems,
+          globalPeople: _globalPeople,
+          selectedDate: _selectedDate,
+        ),
+      ),
+    );
+  }
+
+  // Button 2: Ingredients List Preview (dish-wise & overall)
+  void _goToIngredientsPreview() {
     if (_planItems.isEmpty && _extraIngredients.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add at least one dish or ingredient')),
@@ -260,6 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final enController = TextEditingController();
     final knController = TextEditingController();
     String unit = 'kg';
+    IngredientCategory category = IngredientCategory.dinasi;
 
     showDialog(
       context: context,
@@ -284,6 +307,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     labelText: 'Name (ಕನ್ನಡ)',
                     border: OutlineInputBorder(),
                   ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<IngredientCategory>(
+                  value: category,
+                  decoration: const InputDecoration(
+                    labelText: 'Category (ವರ್ಗ)',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: IngredientCategory.values
+                      .map((c) => DropdownMenuItem(
+                          value: c, child: Text(c.displayName)))
+                      .toList(),
+                  onChanged: (v) {
+                    setDialogState(() => category = v ?? IngredientCategory.dinasi);
+                  },
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -319,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   nameEn: enController.text.trim(),
                   nameKn: knController.text.trim(),
                   defaultUnit: unit,
+                  category: category,
                 ));
                 Navigator.pop(context);
                 await _loadData();
@@ -702,7 +741,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                 ),
-                // Bottom buttons
+                // Bottom buttons - Two separate PDF options
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -717,32 +756,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Row(
                     children: [
+                      // Button 1: Dishes List PDF
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: hasItems ? _goToPreview : null,
-                          icon: const Icon(Icons.picture_as_pdf),
-                          label: const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('ITEM LIST PDF'),
-                              Text('ಇನ್ನಷ್ಟು ಪಟ್ಟಿ', style: TextStyle(fontSize: 10)),
-                            ],
-                          ),
+                        child: ElevatedButton(
+                          onPressed: hasItems ? _goToDishesPreview : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.teal,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.restaurant_menu),
+                              SizedBox(height: 4),
+                              Text('ITEM LIST PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text('ಅಡುಗೆ ಪಟ್ಟಿ', style: TextStyle(fontSize: 10)),
+                            ],
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
+                      // Button 2: Ingredients List PDF
                       Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: hasItems ? _goToPreview : null,
-                          icon: const Icon(Icons.preview),
-                          label: const Text('Preview'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: ElevatedButton(
+                          onPressed: hasItems ? _goToIngredientsPreview : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.list_alt),
+                              SizedBox(height: 4),
+                              Text('Ingredients', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text('ದಿನಸಿ ಪಟ್ಟಿ', style: TextStyle(fontSize: 10)),
+                            ],
                           ),
                         ),
                       ),

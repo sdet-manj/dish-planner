@@ -110,34 +110,49 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
     final enController = TextEditingController();
     final knController = TextEditingController();
     String unit = 'kg';
+    IngredientCategory category = IngredientCategory.dinasi;
 
     final result = await showDialog<Ingredient>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Ingredient'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: enController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (English)',
-                  border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create Ingredient'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: enController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (English)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: knController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (Kannada)',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: knController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (Kannada)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              StatefulBuilder(
-                builder: (context, setDialogState) =>
-                    DropdownButtonFormField<String>(
+                const SizedBox(height: 12),
+                DropdownButtonFormField<IngredientCategory>(
+                  value: category,
+                  decoration: const InputDecoration(
+                    labelText: 'Category (ವರ್ಗ)',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: IngredientCategory.values
+                      .map((c) => DropdownMenuItem(
+                          value: c, child: Text(c.displayName)))
+                      .toList(),
+                  onChanged: (v) {
+                    setDialogState(() => category = v ?? IngredientCategory.dinasi);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
                   value: unit,
                   decoration: const InputDecoration(
                     labelText: 'Default Unit',
@@ -150,39 +165,41 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
                     setDialogState(() => unit = v ?? 'kg');
                   },
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (enController.text.isEmpty || knController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill both names')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (enController.text.isEmpty || knController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill both names')),
+                  );
+                  return;
+                }
+                final id = await _db.insertIngredient(Ingredient(
+                  nameEn: enController.text.trim(),
+                  nameKn: knController.text.trim(),
+                  defaultUnit: unit,
+                  category: category,
+                ));
+                final newIng = Ingredient(
+                  id: id,
+                  nameEn: enController.text.trim(),
+                  nameKn: knController.text.trim(),
+                  defaultUnit: unit,
+                  category: category,
                 );
-                return;
-              }
-              final id = await _db.insertIngredient(Ingredient(
-                nameEn: enController.text.trim(),
-                nameKn: knController.text.trim(),
-                defaultUnit: unit,
-              ));
-              final newIng = Ingredient(
-                id: id,
-                nameEn: enController.text.trim(),
-                nameKn: knController.text.trim(),
-                defaultUnit: unit,
-              );
-              Navigator.pop(context, newIng);
-            },
-            child: const Text('Create'),
-          ),
-        ],
+                Navigator.pop(context, newIng);
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
       ),
     );
 

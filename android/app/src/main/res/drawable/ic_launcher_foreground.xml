@@ -4,17 +4,43 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Plate circle -->
+    
+    <!-- Background circle -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,54m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"/>
-    <!-- Fork -->
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+    
+    <!-- OM Symbol (ॐ) as Ganesha representation -->
+    <!-- Main body of OM -->
     <path
-        android:fillColor="#128C7E"
-        android:pathData="M42,38 L42,70 L45,70 L45,55 L48,55 L48,70 L51,70 L51,38 L48,38 L48,50 L45,50 L45,38 Z"/>
-    <!-- Knife -->
+        android:fillColor="#FF6B00"
+        android:pathData="M35,58 Q30,55 32,48 Q34,42 40,40 Q46,38 50,42 L48,46 Q45,44 42,45 Q38,46 37,50 Q36,54 38,56 Q40,58 44,57 L46,61 Q40,63 35,58z"/>
+    
+    <!-- Upper curve of OM -->
     <path
-        android:fillColor="#128C7E"
-        android:pathData="M57,38 L57,50 Q57,55 62,55 L62,70 L65,70 L65,55 Q70,55 70,50 L70,38 L67,38 L67,48 Q67,52 62,52 L62,38 Z"/>
+        android:fillColor="#FF6B00"
+        android:pathData="M52,38 Q56,35 62,36 Q68,37 70,42 Q72,47 70,52 Q68,56 64,58 L62,54 Q65,52 66,49 Q67,45 65,42 Q63,39 58,39 Q54,39 53,42 L49,40 Q50,37 52,38z"/>
+    
+    <!-- Right hook of OM -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M68,48 Q73,46 76,50 Q79,54 77,60 Q75,66 70,70 Q65,74 58,74 L58,70 Q64,70 68,67 Q72,64 73,59 Q74,54 72,51 Q70,49 68,50 L66,48z"/>
+    
+    <!-- Top dot (bindu) -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M72,32 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0"/>
+    
+    <!-- Crescent moon -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M64,28 Q68,24 74,26 Q72,30 68,30 Q64,30 64,28z"/>
+    
+    <!-- Decorative swirl (trunk representation) -->
+    <path
+        android:fillColor="#FF6B00"
+        android:strokeWidth="2"
+        android:strokeColor="#FF6B00"
+        android:pathData="M42,62 Q38,68 42,74 Q46,78 52,76"/>
+    
 </vector>
-

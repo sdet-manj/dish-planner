@@ -52,69 +52,86 @@ class _MastersScreenState extends State<MastersScreen>
     final enController = TextEditingController();
     final knController = TextEditingController();
     String unit = 'kg';
+    IngredientCategory category = IngredientCategory.dinasi;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Ingredient'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: enController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (English)',
-                  border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Ingredient'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: enController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (English)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: knController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (Kannada)',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: knController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (Kannada)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: unit,
-                decoration: const InputDecoration(
-                  labelText: 'Default Unit',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<IngredientCategory>(
+                  value: category,
+                  decoration: const InputDecoration(
+                    labelText: 'Category (ವರ್ಗ)',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: IngredientCategory.values
+                      .map((c) => DropdownMenuItem(
+                          value: c, child: Text(c.displayName)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => category = v ?? IngredientCategory.dinasi),
                 ),
-                items: ['kg', 'g', 'L', 'ml', 'pcs']
-                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                    .toList(),
-                onChanged: (v) => unit = v ?? 'kg',
-              ),
-            ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: unit,
+                  decoration: const InputDecoration(
+                    labelText: 'Default Unit',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['kg', 'g', 'L', 'ml', 'pcs']
+                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => unit = v ?? 'kg'),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (enController.text.isEmpty || knController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill both names')),
+                  );
+                  return;
+                }
+                await _db.insertIngredient(Ingredient(
+                  nameEn: enController.text.trim(),
+                  nameKn: knController.text.trim(),
+                  defaultUnit: unit,
+                  category: category,
+                ));
+                Navigator.pop(context);
+                _loadData();
+              },
+              child: const Text('Add'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (enController.text.isEmpty || knController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill both names')),
-                );
-                return;
-              }
-              await _db.insertIngredient(Ingredient(
-                nameEn: enController.text.trim(),
-                nameKn: knController.text.trim(),
-                defaultUnit: unit,
-              ));
-              Navigator.pop(context);
-              _loadData();
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
@@ -123,100 +140,117 @@ class _MastersScreenState extends State<MastersScreen>
     final enController = TextEditingController(text: ing.nameEn);
     final knController = TextEditingController(text: ing.nameKn);
     String unit = ing.defaultUnit;
+    IngredientCategory category = ing.category;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Ingredient'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: enController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (English)',
-                  border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Ingredient'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: enController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (English)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: knController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (Kannada)',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: knController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name (Kannada)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: unit,
-                decoration: const InputDecoration(
-                  labelText: 'Default Unit',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<IngredientCategory>(
+                  value: category,
+                  decoration: const InputDecoration(
+                    labelText: 'Category (ವರ್ಗ)',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: IngredientCategory.values
+                      .map((c) => DropdownMenuItem(
+                          value: c, child: Text(c.displayName)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => category = v ?? IngredientCategory.dinasi),
                 ),
-                items: ['kg', 'g', 'L', 'ml', 'pcs']
-                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                    .toList(),
-                onChanged: (v) => unit = v ?? 'kg',
-              ),
-            ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: unit,
+                  decoration: const InputDecoration(
+                    labelText: 'Default Unit',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ['kg', 'g', 'L', 'ml', 'pcs']
+                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => unit = v ?? 'kg'),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Delete Ingredient?'),
-                  content: const Text(
-                      'This will remove the ingredient from all dishes.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Delete',
-                          style: TextStyle(color: Colors.red)),
-                    ),
-                  ],
-                ),
-              );
-              if (confirm == true) {
-                await _db.deleteIngredient(ing.id!);
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete Ingredient?'),
+                    content: const Text(
+                        'This will remove the ingredient from all dishes.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Delete',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await _db.deleteIngredient(ing.id!);
+                  Navigator.pop(context);
+                  _loadData();
+                }
+              },
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (enController.text.isEmpty || knController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill both names')),
+                  );
+                  return;
+                }
+                await _db.updateIngredient(Ingredient(
+                  id: ing.id,
+                  nameEn: enController.text.trim(),
+                  nameKn: knController.text.trim(),
+                  defaultUnit: unit,
+                  category: category,
+                ));
                 Navigator.pop(context);
                 _loadData();
-              }
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-          const Spacer(),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (enController.text.isEmpty || knController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill both names')),
-                );
-                return;
-              }
-              await _db.updateIngredient(Ingredient(
-                id: ing.id,
-                nameEn: enController.text.trim(),
-                nameKn: knController.text.trim(),
-                defaultUnit: unit,
-              ));
-              Navigator.pop(context);
-              _loadData();
-            },
-            child: const Text('Save'),
-          ),
-        ],
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -308,7 +342,7 @@ class _MastersScreenState extends State<MastersScreen>
                           final ing = _ingredients[index];
                           return ListTile(
                             title: Text(_getDisplayName(ing.nameKn, ing.nameEn)),
-                            subtitle: Text('Unit: ${ing.defaultUnit}'),
+                            subtitle: Text('${ing.category.nameKn} | Unit: ${ing.defaultUnit}'),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () => _showEditIngredientDialog(ing),
                           );
