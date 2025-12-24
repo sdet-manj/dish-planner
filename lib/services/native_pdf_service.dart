@@ -173,7 +173,7 @@ class NativePdfService {
         child: MediaQuery(
           data: const MediaQueryData(),
           child: Directionality(
-            textDirection: TextDirection.ltr,
+            textDirection: ui.TextDirection.ltr,
             child: Material(
               color: Colors.white,
               child: widget,
