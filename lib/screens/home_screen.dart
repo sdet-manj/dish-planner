@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../database/database_helper.dart';
 import '../models/dish.dart';
 import '../models/ingredient.dart';
 import '../models/plan_item.dart';
+import '../models/extra_ingredient.dart';
 import 'masters_screen.dart';
 import 'create_dish_screen.dart';
 import 'preview_screen.dart';
@@ -16,20 +18,26 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _db = DatabaseHelper.instance;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
   List<Dish> _allDishes = [];
+  List<Ingredient> _allIngredients = [];
   List<PlanItem> _planItems = [];
+  List<ExtraIngredient> _extraIngredients = [];
   int _globalPeople = 100;
+  DateTime _selectedDate = DateTime.now();
   bool _loading = true;
 
-  // Controllers for text fields to fix cursor position issue
+  // Controllers for text fields
   late TextEditingController _globalPeopleController;
   final Map<int, TextEditingController> _overrideControllers = {};
+  final Map<int, TextEditingController> _extraOverrideControllers = {};
 
   @override
   void initState() {
     super.initState();
     _globalPeopleController = TextEditingController(text: _globalPeople.toString());
-    _loadDishes();
+    _loadData();
   }
 
   @override
@@ -38,13 +46,18 @@ class _HomeScreenState extends State<HomeScreen> {
     for (var controller in _overrideControllers.values) {
       controller.dispose();
     }
+    for (var controller in _extraOverrideControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _loadDishes() async {
+  Future<void> _loadData() async {
     final dishes = await _db.getAllDishes();
+    final ingredients = await _db.getAllIngredients();
     setState(() {
       _allDishes = dishes;
+      _allIngredients = ingredients;
       _loading = false;
     });
   }
@@ -56,11 +69,36 @@ class _HomeScreenState extends State<HomeScreen> {
     return _overrideControllers[index]!;
   }
 
+  TextEditingController _getExtraOverrideController(int index, int? value) {
+    if (!_extraOverrideControllers.containsKey(index)) {
+      _extraOverrideControllers[index] = TextEditingController(text: value?.toString() ?? '');
+    }
+    return _extraOverrideControllers[index]!;
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
   Future<void> _addDishesToPlan() async {
-    // Show multi-select dish picker
     final availableDishes = _allDishes
         .where((d) => !_planItems.any((p) => p.dish.id == d.id))
         .toList();
+
+    if (availableDishes.isEmpty && _allDishes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No dishes available. Create one first.')),
+      );
+      return;
+    }
 
     if (availableDishes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
             MaterialPageRoute(builder: (_) => const CreateDishScreen()),
           );
           if (result == true) {
-            await _loadDishes();
+            await _loadData();
           }
         },
       ),
@@ -93,9 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (ingredients.isEmpty) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${dish.nameEn} has no ingredients. Skipped.'),
-            ),
+            SnackBar(content: Text('${dish.nameEn} has no ingredients. Skipped.')),
           );
           continue;
         }
@@ -106,10 +142,57 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _addExtraIngredients() async {
+    _allIngredients = await _db.getAllIngredients();
+
+    if (!mounted) return;
+
+    if (_allIngredients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No ingredients available. Add one first.')),
+      );
+      return;
+    }
+
+    final result = await showModalBottomSheet<List<ExtraIngredient>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _ExtraIngredientPicker(
+        ingredients: _allIngredients,
+        existingExtras: _extraIngredients,
+        onCreateNew: () async {
+          Navigator.pop(context);
+          _showAddIngredientDialog();
+        },
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      setState(() {
+        for (var extra in result) {
+          final existingIndex = _extraIngredients.indexWhere(
+              (e) => e.ingredient.id == extra.ingredient.id);
+          if (existingIndex >= 0) {
+            _extraIngredients[existingIndex] = extra;
+          } else {
+            _extraIngredients.add(extra);
+          }
+        }
+      });
+    }
+  }
+
   void _removeDish(int index) {
     setState(() {
       _overrideControllers.remove(index);
       _planItems.removeAt(index);
+    });
+  }
+
+  void _removeExtraIngredient(int index) {
+    setState(() {
+      _extraOverrideControllers.remove(index);
+      _extraIngredients.removeAt(index);
     });
   }
 
@@ -125,16 +208,34 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _toggleExtraOverride(int index) {
+    setState(() {
+      if (_extraIngredients[index].overridePeople != null) {
+        _extraIngredients[index].overridePeople = null;
+        _extraOverrideControllers[index]?.text = '';
+      } else {
+        _extraIngredients[index].overridePeople = _globalPeople;
+        _extraOverrideControllers[index]?.text = _globalPeople.toString();
+      }
+    });
+  }
+
   void _setOverridePeople(int index, int people) {
     setState(() {
       _planItems[index].overridePeople = people;
     });
   }
 
+  void _setExtraOverridePeople(int index, int people) {
+    setState(() {
+      _extraIngredients[index].overridePeople = people;
+    });
+  }
+
   void _goToPreview() {
-    if (_planItems.isEmpty) {
+    if (_planItems.isEmpty && _extraIngredients.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one dish to the plan')),
+        const SnackBar(content: Text('Add at least one dish or ingredient')),
       );
       return;
     }
@@ -143,13 +244,14 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => PreviewScreen(
           planItems: _planItems,
+          extraIngredients: _extraIngredients,
           globalPeople: _globalPeople,
+          selectedDate: _selectedDate,
         ),
       ),
     );
   }
 
-  // Helper to get display name in format: ಕನ್ನಡ (English)
   String _getDisplayName(String nameKn, String nameEn) {
     return '$nameKn ($nameEn)';
   }
@@ -163,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Ingredient'),
+          title: const Text('Add New Ingredient\nಹೊಸ ದಿನಸಿ ಸೇರಿಸಿ'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -179,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 TextField(
                   controller: knController,
                   decoration: const InputDecoration(
-                    labelText: 'Name (Kannada)',
+                    labelText: 'Name (ಕನ್ನಡ)',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -219,6 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   defaultUnit: unit,
                 ));
                 Navigator.pop(context);
+                await _loadData();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Ingredient added')),
                 );
@@ -231,73 +334,171 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showAddDishDialog() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const CreateDishScreen()),
+    );
+    if (result == true) {
+      await _loadData();
+    }
+  }
+
+  String _formatQty(double qty) {
+    if (qty == qty.roundToDouble()) {
+      return qty.toInt().toString();
+    }
+    return qty.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasItems = _planItems.isNotEmpty || _extraIngredients.isNotEmpty;
+    final dateStr = DateFormat('dd/MM/yyyy').format(_selectedDate);
+
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
-        title: const Text('Item List'),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        title: const Text(
+          'ॐ',
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'masters') {
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MastersScreen()),
+              );
+              _loadData();
+            },
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Colors.teal),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: const [
+                  Text(
+                    'ॐ',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'ITEM LIST\nಅಡುಗೆ ಪಟ್ಟಿ',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.restaurant_menu, color: Colors.teal),
+              title: const Text('Add New Dish'),
+              subtitle: const Text('ಹೊಸ ಡಿಶ್ ಸೇರಿಸಿ'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAddDishDialog();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.add_shopping_cart, color: Colors.orange),
+              title: const Text('Add New Ingredient'),
+              subtitle: const Text('ಹೊಸ ದಿನಸಿ ಸೇರಿಸಿ'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAddIngredientDialog();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.library_books, color: Colors.purple),
+              title: const Text('Masters'),
+              subtitle: const Text('Dishes & Ingredients List'),
+              onTap: () async {
+                Navigator.pop(context);
                 await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const MastersScreen()),
                 );
-                _loadDishes();
-              } else if (value == 'add_ingredient') {
-                _showAddIngredientDialog();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'masters',
-                child: Row(
-                  children: [
-                    Icon(Icons.library_books, color: Colors.teal),
-                    SizedBox(width: 8),
-                    Text('Masters (Dishes & Ingredients)'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'add_ingredient',
-                child: Row(
-                  children: [
-                    Icon(Icons.add_circle_outline, color: Colors.teal),
-                    SizedBox(width: 8),
-                    Text('Add Ingredient'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+                _loadData();
+              },
+            ),
+          ],
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Global people input
+                // Title section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: Colors.teal.shade50,
+                  child: const Column(
+                    children: [
+                      Text(
+                        'ITEM LIST',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal,
+                        ),
+                      ),
+                      Text(
+                        'ಅಡುಗೆ ಪಟ್ಟಿ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.teal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Input fields section
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: Colors.grey[100],
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Number of People
                       Row(
                         children: [
-                          const Text('Number of People: ',
-                              style: TextStyle(fontSize: 16)),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            width: 100,
+                          const Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('No. of People:',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                                Text('(ಜನ)', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
                             child: TextField(
                               keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               ),
                               controller: _globalPeopleController,
                               onChanged: (v) {
@@ -310,144 +511,246 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Applies to all unless overridden',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      const SizedBox(height: 16),
+                      // Date
+                      Row(
+                        children: [
+                          const Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Date:',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                                Text('(ದಿನಾಂಕ)', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: InkWell(
+                              onTap: _selectDate,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  dateStr,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Select Dishes
+                      InkWell(
+                        onTap: _addDishesToPlan,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.teal),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.teal.shade50,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Select Dishes:',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                  ),
+                                  Text(
+                                    _planItems.isEmpty
+                                        ? '(ITEM LIST)'
+                                        : '${_planItems.length} dish${_planItems.length > 1 ? 'es' : ''} selected',
+                                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                              const Icon(Icons.arrow_drop_down, color: Colors.teal, size: 30),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Add Extra Ingredients button
+                      InkWell(
+                        onTap: _addExtraIngredients,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.orange),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.orange.shade50,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Add Extra Ingredients',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                  ),
+                                  Text(
+                                    _extraIngredients.isEmpty
+                                        ? 'ಹೆಚ್ಚುವರಿ ದಿನಸಿ'
+                                        : '${_extraIngredients.length} item${_extraIngredients.length > 1 ? 's' : ''} added',
+                                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                              const Icon(Icons.add_circle_outline, color: Colors.orange, size: 28),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                // Plan items
+                // Selected items list
                 Expanded(
-                  child: _planItems.isEmpty
+                  child: !hasItems
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.restaurant_menu,
-                                  size: 64, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text('No dishes added yet',
-                                  style: TextStyle(
-                                      fontSize: 16, color: Colors.grey[600])),
-                              const SizedBox(height: 8),
-                              Text('Tap + to add dishes',
-                                  style: TextStyle(
-                                      fontSize: 14, color: Colors.grey[500])),
+                              Icon(Icons.restaurant_menu, size: 48, color: Colors.grey[300]),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Select dishes or add ingredients',
+                                style: TextStyle(color: Colors.grey[500]),
+                              ),
                             ],
                           ),
                         )
-                      : ListView.separated(
-                          padding: const EdgeInsets.only(bottom: 100),
-                          itemCount: _planItems.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final item = _planItems[index];
-                            final effectivePeople =
-                                item.getEffectivePeople(_globalPeople);
-                            final controller = _getOverrideController(
-                                index, item.overridePeople);
-                            return ListTile(
-                              title: Text(
-                                _getDisplayName(item.dish.nameKn, item.dish.nameEn),
-                                style: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w500),
+                      : ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          children: [
+                            // Dishes section
+                            if (_planItems.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  'Selected Dishes:',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal),
+                                ),
                               ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text('People: $effectivePeople'),
-                                      const SizedBox(width: 16),
-                                      GestureDetector(
-                                        onTap: () => _toggleOverride(index),
-                                        child: Row(
-                                          children: [
-                                            const Text('Override: '),
-                                            Text(
-                                              item.hasOverride ? 'ON' : 'OFF',
-                                              style: TextStyle(
-                                                color: item.hasOverride
-                                                    ? Colors.teal
-                                                    : Colors.grey,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (item.hasOverride)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8),
-                                      child: Row(
-                                        children: [
-                                          const Text('Number of people: '),
-                                          SizedBox(
-                                            width: 80,
-                                            child: TextField(
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                isDense: true,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 6),
-                                              ),
-                                              controller: controller,
-                                              onChanged: (v) {
-                                                final val = int.tryParse(v);
-                                                if (val != null && val > 0) {
-                                                  _setOverridePeople(
-                                                      index, val);
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                              ...List.generate(_planItems.length, (index) {
+                                final item = _planItems[index];
+                                final effectivePeople = item.getEffectivePeople(_globalPeople);
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: ListTile(
+                                    dense: true,
+                                    title: Text(
+                                      _getDisplayName(item.dish.nameKn, item.dish.nameEn),
+                                      style: const TextStyle(fontSize: 14),
                                     ),
-                                ],
+                                    subtitle: Text('For $effectivePeople people'),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.close, size: 20),
+                                      onPressed: () => _removeDish(index),
+                                    ),
+                                    onTap: () => _toggleOverride(index),
+                                  ),
+                                );
+                              }),
+                            ],
+                            // Extra ingredients section
+                            if (_extraIngredients.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  'Extra Ingredients:',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                                ),
                               ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.close),
-                                onPressed: () => _removeDish(index),
-                              ),
-                              isThreeLine: item.hasOverride,
-                            );
-                          },
+                              ...List.generate(_extraIngredients.length, (index) {
+                                final extra = _extraIngredients[index];
+                                final scaledQty = extra.getScaledQty(_globalPeople);
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  color: Colors.orange.shade50,
+                                  child: ListTile(
+                                    dense: true,
+                                    title: Text(
+                                      extra.getDisplayName(),
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    subtitle: Text('${_formatQty(scaledQty)} ${extra.unit}'),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.close, size: 20),
+                                      onPressed: () => _removeExtraIngredient(index),
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                            const SizedBox(height: 100),
+                          ],
                         ),
                 ),
-                // Preview button
-                if (_planItems.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _goToPreview,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: const Text('Preview / PDF',
-                            style: TextStyle(fontSize: 16)),
+                // Bottom buttons
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, -2),
                       ),
-                    ),
+                    ],
                   ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: hasItems ? _goToPreview : null,
+                          icon: const Icon(Icons.picture_as_pdf),
+                          label: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('ITEM LIST PDF'),
+                              Text('ಇನ್ನಷ್ಟು ಪಟ್ಟಿ', style: TextStyle(fontSize: 10)),
+                            ],
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: hasItems ? _goToPreview : null,
+                          icon: const Icon(Icons.preview),
+                          label: const Text('Preview'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addDishesToPlan,
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
@@ -469,7 +772,6 @@ class _MultiDishPicker extends StatefulWidget {
 class _MultiDishPickerState extends State<_MultiDishPicker> {
   final Set<int> _selectedIds = {};
 
-  // Helper to get display name in format: ಕನ್ನಡ (English)
   String _getDisplayName(String nameKn, String nameEn) {
     return '$nameKn ($nameEn)';
   }
@@ -510,18 +812,22 @@ class _MultiDishPickerState extends State<_MultiDishPicker> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Select Dishes',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Select Dishes',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('ಡಿಶ್ ಆಯ್ಕೆಮಾಡಿ', style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
                 TextButton.icon(
                   onPressed: widget.onCreateNew,
                   icon: const Icon(Icons.add),
-                  label: const Text('Create new'),
+                  label: const Text('New'),
                 ),
               ],
             ),
           ),
-          // Select all / Deselect all buttons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -577,7 +883,6 @@ class _MultiDishPickerState extends State<_MultiDishPicker> {
                     },
                   ),
           ),
-          // Add selected button
           Container(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
@@ -609,4 +914,237 @@ class _MultiDishPickerState extends State<_MultiDishPicker> {
       ),
     );
   }
+}
+
+// Extra ingredient picker
+class _ExtraIngredientPicker extends StatefulWidget {
+  final List<Ingredient> ingredients;
+  final List<ExtraIngredient> existingExtras;
+  final VoidCallback onCreateNew;
+
+  const _ExtraIngredientPicker({
+    required this.ingredients,
+    required this.existingExtras,
+    required this.onCreateNew,
+  });
+
+  @override
+  State<_ExtraIngredientPicker> createState() => _ExtraIngredientPickerState();
+}
+
+class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
+  final Map<int, _IngredientSelection> _selections = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (var extra in widget.existingExtras) {
+      _selections[extra.ingredient.id!] = _IngredientSelection(
+        ingredient: extra.ingredient,
+        qty: extra.qtyFor100,
+        unit: extra.unit,
+      );
+    }
+  }
+
+  String _getDisplayName(String nameKn, String nameEn) {
+    return '$nameKn ($nameEn)';
+  }
+
+  void _toggleSelection(Ingredient ingredient) {
+    setState(() {
+      if (_selections.containsKey(ingredient.id)) {
+        _selections.remove(ingredient.id);
+      } else {
+        _selections[ingredient.id!] = _IngredientSelection(
+          ingredient: ingredient,
+          qty: 1,
+          unit: ingredient.defaultUnit,
+        );
+      }
+    });
+  }
+
+  void _updateQty(int id, double qty) {
+    if (_selections.containsKey(id)) {
+      setState(() {
+        _selections[id]!.qty = qty;
+      });
+    }
+  }
+
+  void _updateUnit(int id, String unit) {
+    if (_selections.containsKey(id)) {
+      setState(() {
+        _selections[id]!.unit = unit;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.8,
+      minChildSize: 0.3,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) => Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Extra Ingredients',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('ಹೆಚ್ಚುವರಿ ದಿನಸಿ', style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: widget.onCreateNew,
+                  icon: const Icon(Icons.add),
+                  label: const Text('New'),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Set quantity for 100 people',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1),
+          Expanded(
+            child: widget.ingredients.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('No ingredients available',
+                            style: TextStyle(color: Colors.grey[600])),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: widget.onCreateNew,
+                          child: const Text('Add an ingredient'),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    controller: scrollController,
+                    itemCount: widget.ingredients.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final ingredient = widget.ingredients[index];
+                      final isSelected = _selections.containsKey(ingredient.id);
+                      final selection = _selections[ingredient.id];
+
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: Checkbox(
+                              value: isSelected,
+                              onChanged: (_) => _toggleSelection(ingredient),
+                              activeColor: Colors.orange,
+                            ),
+                            title: Text(_getDisplayName(ingredient.nameKn, ingredient.nameEn)),
+                            onTap: () => _toggleSelection(ingredient),
+                          ),
+                          if (isSelected)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 56, right: 16, bottom: 8),
+                              child: Row(
+                                children: [
+                                  const Text('Qty: '),
+                                  SizedBox(
+                                    width: 80,
+                                    child: TextField(
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      ),
+                                      controller: TextEditingController(text: selection!.qty.toString()),
+                                      onChanged: (v) {
+                                        final val = double.tryParse(v);
+                                        if (val != null && val > 0) {
+                                          _updateQty(ingredient.id!, val);
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  DropdownButton<String>(
+                                    value: selection.unit,
+                                    items: ['kg', 'g', 'L', 'ml', 'pcs']
+                                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        _updateUnit(ingredient.id!, v);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _selections.isEmpty
+                    ? null
+                    : () {
+                        final extras = _selections.values
+                            .map((s) => ExtraIngredient(
+                                  ingredient: s.ingredient,
+                                  qtyFor100: s.qty,
+                                  unit: s.unit,
+                                ))
+                            .toList();
+                        Navigator.pop(context, extras);
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  _selections.isEmpty
+                      ? 'Select ingredients'
+                      : 'Add ${_selections.length} ingredient${_selections.length > 1 ? 's' : ''}',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IngredientSelection {
+  final Ingredient ingredient;
+  double qty;
+  String unit;
+
+  _IngredientSelection({
+    required this.ingredient,
+    required this.qty,
+    required this.unit,
+  });
 }

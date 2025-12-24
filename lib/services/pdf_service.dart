@@ -1,42 +1,22 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import '../models/plan_item.dart';
+import '../models/extra_ingredient.dart';
 
 class PdfService {
   static pw.Font? _kannadaFont;
-  static pw.Font? _kannadaBoldFont;
-  static pw.Font? _fallbackFont;
 
-  // Load fonts with proper Kannada support
-  static Future<void> _loadFonts() async {
+  // Load font from assets - this ensures Kannada characters render properly
+  static Future<pw.Font> _loadKannadaFont() async {
     if (_kannadaFont == null) {
-      try {
-        // Use Noto Sans Devanagari which has better Indic script support
-        _kannadaFont = await PdfGoogleFonts.notoSansDevanagariRegular();
-        _kannadaBoldFont = await PdfGoogleFonts.notoSansDevanagariBold();
-      } catch (e) {
-        // Try Noto Sans Kannada
-        try {
-          _kannadaFont = await PdfGoogleFonts.notoSansKannadaRegular();
-          _kannadaBoldFont = await PdfGoogleFonts.notoSansKannadaBold();
-        } catch (e2) {
-          // Final fallback
-          _kannadaFont = await PdfGoogleFonts.notoSansRegular();
-          _kannadaBoldFont = await PdfGoogleFonts.notoSansBold();
-        }
-      }
-      
-      // Load fallback font for mixed content
-      try {
-        _fallbackFont = await PdfGoogleFonts.notoSansKannadaRegular();
-      } catch (e) {
-        _fallbackFont = null;
-      }
+      final fontData = await rootBundle.load('assets/fonts/NotoSansKannada-Regular.ttf');
+      _kannadaFont = pw.Font.ttf(fontData);
     }
+    return _kannadaFont!;
   }
 
   // Helper to get display name in format: ಕನ್ನಡ (English)
@@ -70,20 +50,25 @@ class PdfService {
     return qty.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
+  // Public method for preview screen to use the same conversion logic
+  static Map<String, dynamic> formatQtyWithUnitConversion(double qty, String unit) {
+    return _convertUnit(qty, unit);
+  }
+
   static Future<File> generateDishWisePdf({
     required List<PlanItem> planItems,
+    List<ExtraIngredient> extraIngredients = const [],
     required int globalPeople,
   }) async {
-    await _loadFonts();
+    final font = await _loadKannadaFont();
     
     final pdf = pw.Document();
     final dateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
 
-    // Build theme with font fallback
+    // Use the embedded Kannada font for all text
     final theme = pw.ThemeData.withFont(
-      base: _kannadaFont,
-      bold: _kannadaBoldFont,
-      fontFallback: _fallbackFont != null ? [_fallbackFont!] : null,
+      base: font,
+      bold: font,
     );
 
     pdf.addPage(
@@ -102,6 +87,7 @@ class PdfService {
         build: (context) {
           List<pw.Widget> widgets = [];
 
+          // Dishes section
           for (var item in planItems) {
             final effectivePeople = item.getEffectivePeople(globalPeople);
             final dishName = _getDisplayName(item.dish.nameKn, item.dish.nameEn);
@@ -169,6 +155,71 @@ class PdfService {
             ));
           }
 
+          // Extra ingredients section
+          if (extraIngredients.isNotEmpty) {
+            widgets.add(pw.Container(
+              margin: const pw.EdgeInsets.only(top: 20, bottom: 5),
+              child: pw.Text(
+                'Extra Ingredients - $globalPeople people',
+                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+              ),
+            ));
+
+            widgets.add(pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey400),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(3),
+                1: const pw.FlexColumnWidth(1),
+                2: const pw.FlexColumnWidth(1),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.orange100),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text('Ingredient',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text('Qty',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text('Unit',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                ...extraIngredients.map((extra) {
+                  final rawQty = extra.getScaledQty(globalPeople);
+                  final converted = _convertUnit(rawQty, extra.unit);
+                  final qty = converted['qty'] as double;
+                  final unit = converted['unit'] as String;
+                  
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(_getDisplayName(extra.ingredient.nameKn, extra.ingredient.nameEn)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(_formatQty(qty)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(unit),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ));
+          }
+
           return widgets;
         },
       ),
@@ -182,27 +233,29 @@ class PdfService {
 
   static Future<File> generateOverallPdf({
     required List<PlanItem> planItems,
+    List<ExtraIngredient> extraIngredients = const [],
     required int globalPeople,
   }) async {
-    await _loadFonts();
+    final font = await _loadKannadaFont();
     
     final pdf = pw.Document();
     final dateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
 
     // Merge all ingredients
-    final Map<int, _MergedIngredient> merged = {};
+    final Map<String, _MergedIngredient> merged = {};
 
+    // From dishes
     for (var item in planItems) {
       final effectivePeople = item.getEffectivePeople(globalPeople);
       for (var ing in item.ingredients) {
         final qty = ing.getScaledQty(effectivePeople);
-        final key = ing.ingredientId;
+        final key = '${ing.ingredientId}_${ing.unit}';
         if (merged.containsKey(key)) {
           merged[key]!.totalQty += qty;
           merged[key]!.usedIn.add(item.dish.nameEn);
         } else {
           merged[key] = _MergedIngredient(
-            ingredientId: key,
+            ingredientId: ing.ingredientId,
             nameEn: ing.ingredientNameEn ?? '',
             nameKn: ing.ingredientNameKn ?? '',
             unit: ing.unit,
@@ -213,14 +266,34 @@ class PdfService {
       }
     }
 
+    // From extra ingredients
+    for (var extra in extraIngredients) {
+      final qty = extra.getScaledQty(globalPeople);
+      final key = '${extra.ingredient.id}_${extra.unit}';
+      if (merged.containsKey(key)) {
+        merged[key]!.totalQty += qty;
+        if (!merged[key]!.usedIn.contains('Extra')) {
+          merged[key]!.usedIn.add('Extra');
+        }
+      } else {
+        merged[key] = _MergedIngredient(
+          ingredientId: extra.ingredient.id!,
+          nameEn: extra.ingredient.nameEn,
+          nameKn: extra.ingredient.nameKn,
+          unit: extra.unit,
+          totalQty: qty,
+          usedIn: ['Extra'],
+        );
+      }
+    }
+
     final mergedList = merged.values.toList()
       ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
 
-    // Build theme with font fallback
+    // Use the embedded Kannada font for all text
     final theme = pw.ThemeData.withFont(
-      base: _kannadaFont,
-      bold: _kannadaBoldFont,
-      fontFallback: _fallbackFont != null ? [_fallbackFont!] : null,
+      base: font,
+      bold: font,
     );
 
     pdf.addPage(

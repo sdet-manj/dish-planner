@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import '../models/plan_item.dart';
+import '../models/extra_ingredient.dart';
 import '../services/pdf_service.dart';
 
 class PreviewScreen extends StatefulWidget {
   final List<PlanItem> planItems;
+  final List<ExtraIngredient> extraIngredients;
   final int globalPeople;
+  final DateTime? selectedDate;
 
   const PreviewScreen({
     super.key,
     required this.planItems,
+    this.extraIngredients = const [],
     required this.globalPeople,
+    this.selectedDate,
   });
 
   @override
@@ -60,6 +65,7 @@ class _PreviewScreenState extends State<PreviewScreen>
   Map<String, _MergedIngredient> _getMergedIngredients() {
     final Map<String, _MergedIngredient> merged = {};
 
+    // Merge from dishes
     for (var item in widget.planItems) {
       final effectivePeople = item.getEffectivePeople(widget.globalPeople);
       for (var ing in item.ingredients) {
@@ -80,6 +86,26 @@ class _PreviewScreenState extends State<PreviewScreen>
       }
     }
 
+    // Merge extra ingredients
+    for (var extra in widget.extraIngredients) {
+      final qty = extra.getScaledQty(widget.globalPeople);
+      final key = '${extra.ingredient.id}_${extra.unit}';
+      if (merged.containsKey(key)) {
+        merged[key]!.totalQty += qty;
+        if (!merged[key]!.usedIn.contains('Extra')) {
+          merged[key]!.usedIn.add('Extra');
+        }
+      } else {
+        merged[key] = _MergedIngredient(
+          nameEn: extra.ingredient.nameEn,
+          nameKn: extra.ingredient.nameKn,
+          unit: extra.unit,
+          totalQty: qty,
+          usedIn: ['Extra'],
+        );
+      }
+    }
+
     return merged;
   }
 
@@ -88,6 +114,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     try {
       final file = await PdfService.generateDishWisePdf(
         planItems: widget.planItems,
+        extraIngredients: widget.extraIngredients,
         globalPeople: widget.globalPeople,
       );
       await Printing.sharePdf(
@@ -107,6 +134,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     try {
       final file = await PdfService.generateOverallPdf(
         planItems: widget.planItems,
+        extraIngredients: widget.extraIngredients,
         globalPeople: widget.globalPeople,
       );
       await Printing.sharePdf(
@@ -126,10 +154,12 @@ class _PreviewScreenState extends State<PreviewScreen>
     try {
       final dishWiseFile = await PdfService.generateDishWisePdf(
         planItems: widget.planItems,
+        extraIngredients: widget.extraIngredients,
         globalPeople: widget.globalPeople,
       );
       final overallFile = await PdfService.generateOverallPdf(
         planItems: widget.planItems,
+        extraIngredients: widget.extraIngredients,
         globalPeople: widget.globalPeople,
       );
 
@@ -217,46 +247,85 @@ class _PreviewScreenState extends State<PreviewScreen>
               controller: _tabController,
               children: [
                 // Dish-wise tab
-                ListView.builder(
+                ListView(
                   padding: const EdgeInsets.only(bottom: 100),
-                  itemCount: widget.planItems.length,
-                  itemBuilder: (context, index) {
-                    final item = widget.planItems[index];
-                    final effectivePeople =
-                        item.getEffectivePeople(widget.globalPeople);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          color: Colors.teal[50],
-                          child: Text(
-                            '${_getDisplayName(item.dish.nameKn, item.dish.nameEn)} — $effectivePeople people',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                  children: [
+                    // Dishes
+                    ...widget.planItems.map((item) {
+                      final effectivePeople =
+                          item.getEffectivePeople(widget.globalPeople);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            color: Colors.teal[50],
+                            child: Text(
+                              '${_getDisplayName(item.dish.nameKn, item.dish.nameEn)} — $effectivePeople people',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
-                        ...item.ingredients.map((ing) {
-                          final rawQty = ing.getScaledQty(effectivePeople);
-                          final converted = _convertUnit(rawQty, ing.unit);
-                          final qty = converted['qty'] as double;
-                          final unit = converted['unit'] as String;
-                          return ListTile(
-                            title: Text(_getDisplayName(ing.ingredientNameKn, ing.ingredientNameEn)),
-                            trailing: Text(
-                              '${_formatQty(qty)} $unit',
+                          ...item.ingredients.map((ing) {
+                            final rawQty = ing.getScaledQty(effectivePeople);
+                            final converted = _convertUnit(rawQty, ing.unit);
+                            final qty = converted['qty'] as double;
+                            final unit = converted['unit'] as String;
+                            return ListTile(
+                              title: Text(_getDisplayName(
+                                  ing.ingredientNameKn, ing.ingredientNameEn)),
+                              trailing: Text(
+                                '${_formatQty(qty)} $unit',
+                                style: const TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w500),
+                              ),
+                            );
+                          }),
+                          const Divider(),
+                        ],
+                      );
+                    }),
+                    // Extra ingredients section
+                    if (widget.extraIngredients.isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        color: Colors.orange[50],
+                        child: Row(
+                          children: [
+                            const Icon(Icons.add_shopping_cart,
+                                size: 20, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Extra Ingredients — ${widget.globalPeople} people',
                               style: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w500),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
                             ),
-                          );
-                        }),
-                        const Divider(),
-                      ],
-                    );
-                  },
+                          ],
+                        ),
+                      ),
+                      ...widget.extraIngredients.map((extra) {
+                        final rawQty = extra.getScaledQty(widget.globalPeople);
+                        final converted = _convertUnit(rawQty, extra.unit);
+                        final qty = converted['qty'] as double;
+                        final unit = converted['unit'] as String;
+                        return ListTile(
+                          title: Text(extra.getDisplayName()),
+                          trailing: Text(
+                            '${_formatQty(qty)} $unit',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
                 ),
                 // Overall tab
                 ListView.separated(
@@ -271,7 +340,8 @@ class _PreviewScreenState extends State<PreviewScreen>
                     return ListTile(
                       title: Text(_getDisplayName(m.nameKn, m.nameEn)),
                       subtitle: Text('Used in: ${m.usedIn.join(", ")}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
                       trailing: Text(
                         '${_formatQty(qty)} $unit',
                         style: const TextStyle(
