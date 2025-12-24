@@ -16,14 +16,20 @@ class PdfService {
   static Future<void> _loadFonts() async {
     if (_kannadaFont == null) {
       try {
-        // Try NotoSerifKannada which has better glyph composition for complex scripts
-        _kannadaFont = await PdfGoogleFonts.notoSerifKannadaRegular();
+        // Try Tiro Kannada which is designed for better Kannada readability
+        _kannadaFont = await PdfGoogleFonts.tiroKannadaRegular();
         _englishFont = await PdfGoogleFonts.notoSansRegular();
       } catch (e) {
-        // Fallback to local font if network unavailable
-        final fontData = await rootBundle.load('assets/fonts/NotoSansKannada-Regular.ttf');
-        _kannadaFont = pw.Font.ttf(fontData);
-        _englishFont = _kannadaFont;
+        try {
+          // Fallback to NotoSerifKannada
+          _kannadaFont = await PdfGoogleFonts.notoSerifKannadaRegular();
+          _englishFont = await PdfGoogleFonts.notoSansRegular();
+        } catch (e2) {
+          // Final fallback to local font if network unavailable
+          final fontData = await rootBundle.load('assets/fonts/NotoSansKannada-Regular.ttf');
+          _kannadaFont = pw.Font.ttf(fontData);
+          _englishFont = _kannadaFont;
+        }
       }
     }
   }
