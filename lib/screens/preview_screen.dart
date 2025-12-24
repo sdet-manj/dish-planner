@@ -159,7 +159,7 @@ class _PreviewScreenState extends State<PreviewScreen>
     final dairyList = merged.values.where((m) => m.category == 'dairy').toList()
       ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
 
-    Widget buildCategorySection(String titleEn, String titleKn, List<_MergedIngredient> items, Color color) {
+    Widget buildCategorySection(String titleEn, String titleKn, List<_MergedIngredient> items, MaterialColor color) {
       if (items.isEmpty) return const SizedBox.shrink();
       
       return Column(
