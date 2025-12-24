@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/plan_item.dart';
 import '../models/extra_ingredient.dart';
 import '../services/pdf_service.dart';
+import '../services/native_pdf_service.dart';
 
 class PreviewScreen extends StatefulWidget {
   final List<PlanItem> planItems;
@@ -150,6 +151,28 @@ class _PreviewScreenState extends State<PreviewScreen>
     setState(() => _generating = false);
   }
 
+  /// Generate Overall PDF with proper Kannada rendering (Native approach)
+  Future<void> _generateNativeOverallPdf() async {
+    setState(() => _generating = true);
+    try {
+      final file = await NativePdfService.generateOverallPdf(
+        planItems: widget.planItems,
+        extraIngredients: widget.extraIngredients,
+        globalPeople: widget.globalPeople,
+        eventDate: widget.selectedDate,
+      );
+      await Printing.sharePdf(
+        bytes: await file.readAsBytes(),
+        filename: file.path.split('/').last,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating PDF: $e')),
+      );
+    }
+    setState(() => _generating = false);
+  }
+
   Widget _buildOverallTab(Map<String, _MergedIngredient> merged) {
     // Group by category
     final dinasiList = merged.values.where((m) => m.category == 'dinasi').toList()
@@ -238,6 +261,16 @@ class _PreviewScreenState extends State<PreviewScreen>
                 onTap: () {
                   Navigator.pop(context);
                   _generateOverallPdf();
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.translate, color: Colors.purple),
+                title: const Text('Overall PDF (ಕನ್ನಡ Native)'),
+                subtitle: const Text('Better Kannada text rendering'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _generateNativeOverallPdf();
                 },
               ),
               const Divider(),
