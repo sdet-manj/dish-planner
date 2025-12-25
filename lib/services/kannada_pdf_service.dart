@@ -86,8 +86,8 @@ class KannadaPdfService {
     final screenshotController = ScreenshotController();
     final pdf = pw.Document();
     
-    // Max items per page to avoid overflow (~20-25 items fit well on A4)
-    const int maxItemsPerPage = 20;
+    // Max items per page to avoid overflow (~15 items fit well on A4 with good fonts)
+    const int maxItemsPerPage = 15;
     
     // Capture header section
     final headerWidget = _buildHeaderWidget(eventDateStr: eventDateStr);
@@ -115,44 +115,70 @@ class KannadaPdfService {
       return chunks;
     }
 
+    // Helper to capture a category section with error handling
+    Future<Uint8List?> captureSection(Widget widget) async {
+      try {
+        return await screenshotController.captureFromWidget(
+          widget,
+          context: context,
+          pixelRatio: 2.0,
+          delay: const Duration(milliseconds: 100),
+        );
+      } catch (e) {
+        debugPrint('Error capturing section: $e');
+        return null;
+      }
+    }
+
     // Capture each category section, splitting into chunks if needed
     List<_PageSection> pageSections = [];
     
     if (groceriesList.isNotEmpty) {
       final chunks = splitIntoChunks(groceriesList, maxItemsPerPage);
       for (int i = 0; i < chunks.length; i++) {
-        final title = i == 0 ? 'ದಿನಸಿ (Groceries)' : 'ದಿನಸಿ (Groceries) - contd.';
+        final title = i == 0 ? 'ದಿನಸಿ (Groceries)' : 'ದಿನಸಿ (Groceries) - ಮುಂದುವರೆದಿದೆ';
         final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF009688));
-        final bytes = await screenshotController.captureFromWidget(
-          widget, context: context, pixelRatio: 2.0, delay: const Duration(milliseconds: 50));
-        if (bytes != null) pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+        final bytes = await captureSection(widget);
+        if (bytes != null) {
+          pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+        }
       }
     }
     
     if (vegetablesList.isNotEmpty) {
       final chunks = splitIntoChunks(vegetablesList, maxItemsPerPage);
       for (int i = 0; i < chunks.length; i++) {
-        final title = i == 0 ? 'ತರಕಾರಿ (Vegetables)' : 'ತರಕಾರಿ (Vegetables) - contd.';
+        final title = i == 0 ? 'ತರಕಾರಿ (Vegetables)' : 'ತರಕಾರಿ (Vegetables) - ಮುಂದುವರೆದಿದೆ';
         final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF4CAF50));
-        final bytes = await screenshotController.captureFromWidget(
-          widget, context: context, pixelRatio: 2.0, delay: const Duration(milliseconds: 50));
-        if (bytes != null) pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+        final bytes = await captureSection(widget);
+        if (bytes != null) {
+          pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+        }
       }
     }
     
     if (dairyList.isNotEmpty) {
       final chunks = splitIntoChunks(dairyList, maxItemsPerPage);
       for (int i = 0; i < chunks.length; i++) {
-        final title = i == 0 ? 'ಹಾಲು/ಮೊಸರು (Dairy)' : 'ಹಾಲು/ಮೊಸರು (Dairy) - contd.';
+        final title = i == 0 ? 'ಹಾಲು/ಮೊಸರು (Dairy)' : 'ಹಾಲು/ಮೊಸರು (Dairy) - ಮುಂದುವರೆದಿದೆ';
         final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF2196F3));
-        final bytes = await screenshotController.captureFromWidget(
-          widget, context: context, pixelRatio: 2.0, delay: const Duration(milliseconds: 50));
-        if (bytes != null) pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+        final bytes = await captureSection(widget);
+        if (bytes != null) {
+          pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+        }
       }
     }
 
+    // If no sections captured, show error
+    if (pageSections.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Could not capture ingredient sections')),
+      );
+      return;
+    }
+
     // Add pages
-    if (headerBytes != null && pageSections.isNotEmpty) {
+    if (headerBytes != null) {
       final headerImage = pw.MemoryImage(headerBytes);
       
       for (int i = 0; i < pageSections.length; i++) {
