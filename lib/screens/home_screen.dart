@@ -1143,7 +1143,7 @@ class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
                                   ),
                                   const SizedBox(width: 8),
                                   DropdownButton<String>(
-                                    value: selection.unit,
+                                    value: selection!.unit,
                                     items: ['kg', 'g', 'L', 'ml', 'pcs']
                                         .map((u) => DropdownMenuItem(value: u, child: Text(u)))
                                         .toList(),
