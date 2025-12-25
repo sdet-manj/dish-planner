@@ -787,7 +787,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Icon(Icons.list_alt),
                               SizedBox(height: 4),
                               Text('Ingredients', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              Text('ದಿನಸಿ ಪಟ್ಟಿ', style: TextStyle(fontSize: 10)),
+                              Text('ಸಾಮಾನು ಪಟ್ಟಿ', style: TextStyle(fontSize: 10)),
                             ],
                           ),
                         ),

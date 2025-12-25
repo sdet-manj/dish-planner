@@ -221,22 +221,22 @@ class _PreviewScreenState extends State<PreviewScreen>
               ),
               const SizedBox(height: 16),
               ListTile(
+                leading: const Icon(Icons.summarize, color: Colors.orange),
+                title: const Text('ಸಾಮಾನು ಪಟ್ಟಿ (Kannada)'),
+                subtitle: const Text('Combined ingredient list'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _generateKannadaPdf();
+                },
+              ),
+              const Divider(),
+              ListTile(
                 leading: const Icon(Icons.list_alt, color: Colors.teal),
                 title: const Text('Dish-wise PDF'),
                 subtitle: const Text('Each dish with its ingredients'),
                 onTap: () {
                   Navigator.pop(context);
                   _generateDishWisePdf();
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.summarize, color: Colors.orange),
-                title: const Text('Overall PDF (ಕನ್ನಡ)'),
-                subtitle: const Text('Combined ingredient list'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _generateKannadaPdf();
                 },
               ),
             ],
@@ -269,8 +269,8 @@ class _PreviewScreenState extends State<PreviewScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
+            Tab(text: 'ಸಾಮಾನು ಪಟ್ಟಿ'),
             Tab(text: 'Dish-wise'),
-            Tab(text: 'Overall'),
           ],
         ),
       ),
@@ -308,7 +308,9 @@ class _PreviewScreenState extends State<PreviewScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Dish-wise tab
+                // Overall tab (ಸಾಮಾನು ಪಟ್ಟಿ) - grouped by category - FIRST
+                _buildOverallTab(merged),
+                // Dish-wise tab - SECOND
                 ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
@@ -387,8 +389,6 @@ class _PreviewScreenState extends State<PreviewScreen>
                     ],
                   ],
                 ),
-                // Overall tab - grouped by category
-                _buildOverallTab(merged),
               ],
             ),
           ),

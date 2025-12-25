@@ -22,11 +22,18 @@ class KannadaPdfService {
     List<ExtraIngredient> extraIngredients = const [],
     required int globalPeople,
     DateTime? eventDate,
+    String? customSuffix,
   }) async {
-    final generatedDateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
-    final eventDateStr = eventDate != null 
-        ? DateFormat('dd/MM/yyyy').format(eventDate)
-        : DateFormat('dd/MM/yyyy').format(DateTime.now());
+    final selectedDate = eventDate ?? DateTime.now();
+    final dateForFilename = DateFormat('dd-MMM-yyyy').format(selectedDate);
+    final eventDateStr = DateFormat('dd/MM/yyyy').format(selectedDate);
+    
+    // Ask for custom filename suffix
+    String? suffix = customSuffix;
+    if (suffix == null) {
+      suffix = await _showFilenameDialog(context, 'Ingredients_$dateForFilename');
+      if (suffix == null) return; // User cancelled
+    }
 
     // Merge all ingredients by category
     final Map<String, _MergedIngredient> merged = {};
@@ -119,7 +126,8 @@ class KannadaPdfService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(20),
         build: (pw.Context ctx) {
-          return pw.Center(
+          return pw.Align(
+            alignment: pw.Alignment.topCenter,
             child: pw.Image(image, fit: pw.BoxFit.contain),
           );
         },
@@ -128,12 +136,15 @@ class KannadaPdfService {
 
     // Save and share
     final output = await getTemporaryDirectory();
-    final file = File('${output.path}/Overall_Kannada_$generatedDateStr.pdf');
+    final filename = suffix.isNotEmpty 
+        ? 'Ingredients_${dateForFilename}_$suffix.pdf'
+        : 'Ingredients_$dateForFilename.pdf';
+    final file = File('${output.path}/$filename');
     await file.writeAsBytes(await pdf.save());
 
     await Printing.sharePdf(
       bytes: await file.readAsBytes(),
-      filename: 'Overall_Kannada_$generatedDateStr.pdf',
+      filename: filename,
     );
   }
 
@@ -143,11 +154,18 @@ class KannadaPdfService {
     required List<PlanItem> planItems,
     required int globalPeople,
     DateTime? eventDate,
+    String? customSuffix,
   }) async {
-    final generatedDateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
-    final eventDateStr = eventDate != null 
-        ? DateFormat('dd/MM/yyyy').format(eventDate)
-        : DateFormat('dd/MM/yyyy').format(DateTime.now());
+    final selectedDate = eventDate ?? DateTime.now();
+    final dateForFilename = DateFormat('dd-MMM-yyyy').format(selectedDate);
+    final eventDateStr = DateFormat('dd/MM/yyyy').format(selectedDate);
+    
+    // Ask for custom filename suffix
+    String? suffix = customSuffix;
+    if (suffix == null) {
+      suffix = await _showFilenameDialog(context, 'ItemList_$dateForFilename');
+      if (suffix == null) return; // User cancelled
+    }
 
     final screenshotController = ScreenshotController();
     
@@ -190,7 +208,8 @@ class KannadaPdfService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(20),
         build: (pw.Context ctx) {
-          return pw.Center(
+          return pw.Align(
+            alignment: pw.Alignment.topCenter,
             child: pw.Image(image, fit: pw.BoxFit.contain),
           );
         },
@@ -199,12 +218,63 @@ class KannadaPdfService {
 
     // Save and share
     final output = await getTemporaryDirectory();
-    final file = File('${output.path}/DishList_$generatedDateStr.pdf');
+    final filename = suffix.isNotEmpty 
+        ? 'ItemList_${dateForFilename}_$suffix.pdf'
+        : 'ItemList_$dateForFilename.pdf';
+    final file = File('${output.path}/$filename');
     await file.writeAsBytes(await pdf.save());
 
     await Printing.sharePdf(
       bytes: await file.readAsBytes(),
-      filename: 'DishList_$generatedDateStr.pdf',
+      filename: filename,
+    );
+  }
+
+  /// Show dialog to get custom filename suffix
+  static Future<String?> _showFilenameDialog(BuildContext context, String defaultName) async {
+    final controller = TextEditingController();
+    
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('PDF Filename'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'File: $defaultName.pdf',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            const Text('Add extra text (optional):'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: 'e.g., Temple, EventName',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Leave empty for: $defaultName.pdf',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Generate PDF'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -230,7 +300,7 @@ class KannadaPdfService {
                 const Text(
                   'ॐ',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 40,
                     fontWeight: FontWeight.bold,
                     color: Colors.deepOrange,
                   ),
@@ -238,14 +308,14 @@ class KannadaPdfService {
                 const Text(
                   'ಅಡುಗೆ ಪಟ್ಟಿ / ITEM LIST',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
             const Divider(thickness: 2),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             
             // Date and People
             Row(
@@ -253,15 +323,15 @@ class KannadaPdfService {
               children: [
                 Text(
                   'ದಿನಾಂಕ (Date): $eventDateStr',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
                   'ಜನ (People): $globalPeople',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             
             // Plain dishes list
             ...planItems.asMap().entries.map((entry) {
@@ -273,10 +343,10 @@ class KannadaPdfService {
               final peopleText = hasOverride ? ' [${item.overridePeople} ಜನ]' : '';
               
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
+                padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Text(
                   '${index + 1}. ${item.dish.nameKn} (${item.dish.nameEn})$peopleText',
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 16),
                 ),
               );
             }).toList(),
@@ -309,36 +379,36 @@ class KannadaPdfService {
                 const Text(
                   'ॐ',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 40,
                     fontWeight: FontWeight.bold,
                     color: Colors.deepOrange,
                   ),
                 ),
                 const Text(
-                  'ಅಡುಗೆ ಪಟ್ಟಿ / ITEM LIST',
+                  'ಅಡುಗೆ ಪಟ್ಟಿ / GROCERY LIST',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
             const Divider(thickness: 2),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             
-            // Date only (no people, no generated date)
+            // Date
             Text(
               'ದಿನಾಂಕ (Date): $eventDateStr',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 16),
             
             const Text(
               'ಒಟ್ಟು ಸಾಮಾನುಗಳು / Overall Ingredients',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Divider(),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             
             // Groceries
             if (groceriesList.isNotEmpty) ...[
@@ -385,14 +455,14 @@ class KannadaPdfService {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           color: headerColor,
           child: Text(
             title,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: 16,
             ),
           ),
         ),
@@ -400,8 +470,8 @@ class KannadaPdfService {
           border: TableBorder.all(color: Colors.grey[300]!),
           columnWidths: const {
             0: FlexColumnWidth(3),
-            1: FixedColumnWidth(60),
-            2: FixedColumnWidth(50),
+            1: FixedColumnWidth(70),
+            2: FixedColumnWidth(60),
           },
           children: [
             // Header row
@@ -409,19 +479,19 @@ class KannadaPdfService {
               decoration: BoxDecoration(color: Colors.grey[200]),
               children: const [
                 Padding(
-                  padding: EdgeInsets.all(6),
+                  padding: EdgeInsets.all(8),
                   child: Text('ಸಾಮಾನು / Ingredient', 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
                 Padding(
-                  padding: EdgeInsets.all(6),
+                  padding: EdgeInsets.all(8),
                   child: Text('ಪ್ರಮಾಣ', 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
                 Padding(
-                  padding: EdgeInsets.all(6),
+                  padding: EdgeInsets.all(8),
                   child: Text('Unit', 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ],
             ),
@@ -431,24 +501,24 @@ class KannadaPdfService {
               return TableRow(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     child: Text(
                       '${item.nameKn} (${item.nameEn})',
-                      style: const TextStyle(fontSize: 10),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     child: Text(
                       _formatQty(converted['qty'] as double),
-                      style: const TextStyle(fontSize: 10),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     child: Text(
                       converted['unit'] as String,
-                      style: const TextStyle(fontSize: 10),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                 ],

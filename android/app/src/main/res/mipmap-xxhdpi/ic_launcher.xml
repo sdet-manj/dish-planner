@@ -1,37 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="144dp"
-    android:height="144dp"
-    android:viewportWidth="144"
-    android:viewportHeight="144">
-    
-    <path
-        android:fillColor="#FFCC80"
-        android:pathData="M72,72m-72,0a72,72 0,1 1,144 0a72,72 0,1 1,-144 0"/>
-    
-    <path
-        android:fillColor="#FFF3E0"
-        android:pathData="M72,72m-60,0a60,60 0,1 1,120 0a60,60 0,1 1,-120 0"/>
-    
-    <path
-        android:fillColor="#FF6B00"
-        android:pathData="M44,78 Q36,74 38,64 Q40,54 52,50 Q64,46 72,54 L68,62 Q62,56 54,58 Q46,60 44,68 Q42,76 50,80 L52,88 Q40,90 44,78z"/>
-    
-    <path
-        android:fillColor="#FF6B00"
-        android:pathData="M76,46 Q86,40 98,42 Q110,44 114,54 Q118,64 114,76 L106,72 Q110,66 108,58 Q106,48 96,48 Q86,48 82,54 L74,50 Q76,42 76,46z"/>
-    
-    <path
-        android:fillColor="#FF6B00"
-        android:pathData="M110,60 Q122,56 128,66 Q134,76 130,90 Q126,104 112,110 L112,102 Q120,98 122,88 Q124,76 118,68 Q112,62 110,66z"/>
-    
-    <path
-        android:fillColor="#FF6B00"
-        android:pathData="M114,34 m-6,0 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0"/>
-    
-    <path
-        android:fillColor="#FF6B00"
-        android:pathData="M102,24 Q110,14 122,20 Q118,28 110,28 Q102,28 102,24z"/>
-    
-</vector>
-
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
