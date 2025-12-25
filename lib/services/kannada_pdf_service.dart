@@ -83,56 +83,98 @@ class KannadaPdfService {
     final dairyList = merged.values.where((m) => m.category == 'dairy').toList()
       ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
 
-    // Show a full-screen overlay to capture
     final screenshotController = ScreenshotController();
+    final pdf = pw.Document();
     
-    // Create the widget to capture
-    final contentWidget = _buildPdfContentWidget(
-      eventDateStr: eventDateStr,
-      groceriesList: groceriesList,
-      vegetablesList: vegetablesList,
-      dairyList: dairyList,
-    );
-
-    // Capture widget as image
-    Uint8List? imageBytes;
+    // Max items per page to avoid overflow (~20-25 items fit well on A4)
+    const int maxItemsPerPage = 20;
+    
+    // Capture header section
+    final headerWidget = _buildHeaderWidget(eventDateStr: eventDateStr);
+    Uint8List? headerBytes;
     try {
-      imageBytes = await screenshotController.captureFromWidget(
-        contentWidget,
+      headerBytes = await screenshotController.captureFromWidget(
+        headerWidget,
         context: context,
-        pixelRatio: 2.0, // High resolution
-        delay: const Duration(milliseconds: 100),
+        pixelRatio: 2.0,
+        delay: const Duration(milliseconds: 50),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error capturing content: $e')),
+        SnackBar(content: Text('Error capturing header: $e')),
       );
       return;
     }
 
-    if (imageBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to capture content')),
-      );
-      return;
+    // Helper to split list into chunks
+    List<List<T>> splitIntoChunks<T>(List<T> list, int chunkSize) {
+      List<List<T>> chunks = [];
+      for (var i = 0; i < list.length; i += chunkSize) {
+        chunks.add(list.sublist(i, i + chunkSize > list.length ? list.length : i + chunkSize));
+      }
+      return chunks;
     }
 
-    // Create PDF with the captured image
-    final pdf = pw.Document();
-    final image = pw.MemoryImage(imageBytes);
+    // Capture each category section, splitting into chunks if needed
+    List<_PageSection> pageSections = [];
+    
+    if (groceriesList.isNotEmpty) {
+      final chunks = splitIntoChunks(groceriesList, maxItemsPerPage);
+      for (int i = 0; i < chunks.length; i++) {
+        final title = i == 0 ? 'ದಿನಸಿ (Groceries)' : 'ದಿನಸಿ (Groceries) - contd.';
+        final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF009688));
+        final bytes = await screenshotController.captureFromWidget(
+          widget, context: context, pixelRatio: 2.0, delay: const Duration(milliseconds: 50));
+        if (bytes != null) pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+      }
+    }
+    
+    if (vegetablesList.isNotEmpty) {
+      final chunks = splitIntoChunks(vegetablesList, maxItemsPerPage);
+      for (int i = 0; i < chunks.length; i++) {
+        final title = i == 0 ? 'ತರಕಾರಿ (Vegetables)' : 'ತರಕಾರಿ (Vegetables) - contd.';
+        final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF4CAF50));
+        final bytes = await screenshotController.captureFromWidget(
+          widget, context: context, pixelRatio: 2.0, delay: const Duration(milliseconds: 50));
+        if (bytes != null) pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+      }
+    }
+    
+    if (dairyList.isNotEmpty) {
+      final chunks = splitIntoChunks(dairyList, maxItemsPerPage);
+      for (int i = 0; i < chunks.length; i++) {
+        final title = i == 0 ? 'ಹಾಲು/ಮೊಸರು (Dairy)' : 'ಹಾಲು/ಮೊಸರು (Dairy) - contd.';
+        final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF2196F3));
+        final bytes = await screenshotController.captureFromWidget(
+          widget, context: context, pixelRatio: 2.0, delay: const Duration(milliseconds: 50));
+        if (bytes != null) pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
+      }
+    }
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(20),
-        build: (pw.Context ctx) {
-          return pw.Align(
-            alignment: pw.Alignment.topCenter,
-            child: pw.Image(image, fit: pw.BoxFit.contain),
-          );
-        },
-      ),
-    );
+    // Add pages
+    if (headerBytes != null && pageSections.isNotEmpty) {
+      final headerImage = pw.MemoryImage(headerBytes);
+      
+      for (int i = 0; i < pageSections.length; i++) {
+        final sectionImage = pw.MemoryImage(pageSections[i].bytes);
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(20),
+            build: (pw.Context ctx) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (i == 0) pw.Image(headerImage, fit: pw.BoxFit.contain),
+                  if (i == 0) pw.SizedBox(height: 10),
+                  pw.Image(sectionImage, fit: pw.BoxFit.contain),
+                ],
+              );
+            },
+          ),
+        );
+      }
+    }
 
     // Save and share
     final output = await getTemporaryDirectory();
@@ -356,7 +398,142 @@ class KannadaPdfService {
     );
   }
 
-  /// Build the widget content for PDF
+  /// Build header widget for PDF
+  static Widget _buildHeaderWidget({required String eventDateStr}) {
+    return Material(
+      color: Colors.white,
+      child: Container(
+        width: 550,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'ॐ',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+                const Text(
+                  'ಸಾಮಾನು ಪಟ್ಟಿ / GROCERY LIST',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(thickness: 2),
+            const SizedBox(height: 8),
+            Text(
+              'ದಿನಾಂಕ (Date): $eventDateStr',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build a single category section widget for PDF
+  static Widget _buildCategorySectionWidget(
+    String title,
+    List<_MergedIngredient> items,
+    Color headerColor,
+  ) {
+    return Material(
+      color: Colors.white,
+      child: Container(
+        width: 550,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              color: headerColor,
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            Table(
+              border: TableBorder.all(color: Colors.grey[300]!),
+              columnWidths: const {
+                0: FlexColumnWidth(3),
+                1: FixedColumnWidth(70),
+                2: FixedColumnWidth(60),
+              },
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey[200]),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('ಸಾಮಾನು / Ingredient', 
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('ಪ್ರಮಾಣ', 
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('Unit', 
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                  ],
+                ),
+                ...items.map((item) {
+                  final converted = _convertUnit(item.totalQty, item.unit);
+                  return TableRow(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          '${item.nameKn} (${item.nameEn})',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          _formatQty(converted['qty'] as double),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          converted['unit'] as String,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build the widget content for PDF (legacy - kept for compatibility)
   static Widget _buildPdfContentWidget({
     required String eventDateStr,
     required List<_MergedIngredient> groceriesList,
@@ -566,5 +743,15 @@ class _MergedIngredient {
     required this.unit,
     required this.category,
     required this.totalQty,
+  });
+}
+
+class _PageSection {
+  final Uint8List bytes;
+  final bool isFirstOfCategory;
+
+  _PageSection({
+    required this.bytes,
+    this.isFirstOfCategory = false,
   });
 }
