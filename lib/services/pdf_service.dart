@@ -44,12 +44,22 @@ class PdfService {
     return _englishFont;
   }
 
-  // Helper to get display name in format: English (ಕನ್ನಡ)
-  // English first tends to render better in PDFs with complex scripts
-  static String _getDisplayName(String? nameKn, String? nameEn) {
+  // Helper to get display name
+  // Option 1: English only (guaranteed quality)
+  static String _getDisplayNameEnglishOnly(String? nameKn, String? nameEn) {
+    return nameEn ?? '';
+  }
+  
+  // Option 2: Try both languages (may have rendering issues)
+  static String _getDisplayNameBoth(String? nameKn, String? nameEn) {
     final kn = nameKn ?? '';
     final en = nameEn ?? '';
     return '$en ($kn)';
+  }
+  
+  // Current default - use English only for reliable PDF
+  static String _getDisplayName(String? nameKn, String? nameEn) {
+    return _getDisplayNameEnglishOnly(nameKn, nameEn);
   }
 
   // Convert units: g→kg if >1000, ml→L if >1000
@@ -376,7 +386,7 @@ class PdfService {
             padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             color: headerColor,
             child: pw.Text(
-              '$titleEn ($titleKn)',
+              titleEn, // English only for reliable rendering
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
             ),
           ),

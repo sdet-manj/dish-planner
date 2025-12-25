@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/plan_item.dart';
 import '../models/extra_ingredient.dart';
 import '../services/pdf_service.dart';
-import '../services/native_pdf_service.dart';
+import '../services/kannada_pdf_service.dart';
 
 class PreviewScreen extends StatefulWidget {
   final List<PlanItem> planItems;
@@ -151,19 +151,16 @@ class _PreviewScreenState extends State<PreviewScreen>
     setState(() => _generating = false);
   }
 
-  /// Generate Overall PDF with proper Kannada rendering (Native approach)
-  Future<void> _generateNativeOverallPdf() async {
+  /// Generate Overall PDF with Kannada text
+  Future<void> _generateKannadaPdf() async {
     setState(() => _generating = true);
     try {
-      final file = await NativePdfService.generateOverallPdf(
+      await KannadaPdfService.generateAndSharePdf(
+        context: context,
         planItems: widget.planItems,
         extraIngredients: widget.extraIngredients,
         globalPeople: widget.globalPeople,
         eventDate: widget.selectedDate,
-      );
-      await Printing.sharePdf(
-        bytes: await file.readAsBytes(),
-        filename: file.path.split('/').last,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -256,7 +253,7 @@ class _PreviewScreenState extends State<PreviewScreen>
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.summarize, color: Colors.orange),
-                title: const Text('Overall PDF'),
+                title: const Text('Overall PDF (English)'),
                 subtitle: const Text('Combined ingredient list'),
                 onTap: () {
                   Navigator.pop(context);
@@ -266,11 +263,11 @@ class _PreviewScreenState extends State<PreviewScreen>
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.translate, color: Colors.purple),
-                title: const Text('Overall PDF (ಕನ್ನಡ Native)'),
-                subtitle: const Text('Better Kannada text rendering'),
+                title: const Text('Overall PDF (ಕನ್ನಡ)'),
+                subtitle: const Text('With Kannada text'),
                 onTap: () {
                   Navigator.pop(context);
-                  _generateNativeOverallPdf();
+                  _generateKannadaPdf();
                 },
               ),
               const Divider(),
