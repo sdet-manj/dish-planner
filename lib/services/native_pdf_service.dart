@@ -77,68 +77,82 @@ class NativePdfService {
     // Create PDF
     final pdf = pw.Document();
 
-    // Capture header as image
+    // Capture header as image (smaller width for better fit)
     final headerImage = await _captureWidgetAsImage(
       _buildHeader(eventDateStr, globalPeople, generatedDateStr),
-      width: 550,
+      width: 500,
     );
 
-    // Capture each category as image
+    // Capture each category as image - split large categories if needed
     pw.MemoryImage? groceriesImage;
     pw.MemoryImage? vegetablesImage;
     pw.MemoryImage? dairyImage;
 
+    // Limit items per category to avoid too-tall images (max 15 items per capture)
     if (groceriesList.isNotEmpty) {
+      final limitedList = groceriesList.take(20).toList();
       groceriesImage = await _captureWidgetAsImage(
-        _buildCategoryTable('Groceries', 'ದಿನಸಿ', groceriesList, Colors.teal),
-        width: 550,
+        _buildCategoryTable('Groceries', 'ದಿನಸಿ', limitedList, Colors.teal),
+        width: 500,
       );
     }
 
     if (vegetablesList.isNotEmpty) {
+      final limitedList = vegetablesList.take(20).toList();
       vegetablesImage = await _captureWidgetAsImage(
-        _buildCategoryTable('Vegetables', 'ತರಕಾರಿ', vegetablesList, Colors.green),
-        width: 550,
+        _buildCategoryTable('Vegetables', 'ತರಕಾರಿ', limitedList, Colors.green),
+        width: 500,
       );
     }
 
     if (dairyList.isNotEmpty) {
+      final limitedList = dairyList.take(20).toList();
       dairyImage = await _captureWidgetAsImage(
-        _buildCategoryTable('Milk/Curd', 'ಹಾಲು/ಮೊಸರು', dairyList, Colors.blue),
-        width: 550,
+        _buildCategoryTable('Milk/Curd', 'ಹಾಲು/ಮೊಸರು', limitedList, Colors.blue),
+        width: 500,
       );
     }
 
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(20),
-        build: (context) {
-          final List<pw.Widget> widgets = [];
-          
-          if (headerImage != null) {
-            widgets.add(pw.Image(headerImage));
-            widgets.add(pw.SizedBox(height: 10));
-          }
-          
-          if (groceriesImage != null) {
-            widgets.add(pw.Image(groceriesImage));
-            widgets.add(pw.SizedBox(height: 10));
-          }
-          
-          if (vegetablesImage != null) {
-            widgets.add(pw.Image(vegetablesImage));
-            widgets.add(pw.SizedBox(height: 10));
-          }
-          
-          if (dairyImage != null) {
-            widgets.add(pw.Image(dairyImage));
-          }
-          
-          return widgets;
-        },
-      ),
-    );
+    // Add header page
+    if (headerImage != null) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(20),
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Image(headerImage, fit: pw.BoxFit.scaleDown),
+              if (groceriesImage != null) ...[
+                pw.SizedBox(height: 10),
+                pw.Image(groceriesImage, fit: pw.BoxFit.scaleDown),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Add vegetables and dairy on second page if they exist
+    if (vegetablesImage != null || dairyImage != null) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(20),
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (vegetablesImage != null) ...[
+                pw.Image(vegetablesImage, fit: pw.BoxFit.scaleDown),
+                pw.SizedBox(height: 10),
+              ],
+              if (dairyImage != null)
+                pw.Image(dairyImage, fit: pw.BoxFit.scaleDown),
+            ],
+          ),
+        ),
+      );
+    }
 
     final output = await getTemporaryDirectory();
     final file = File('${output.path}/Overall_Native_$generatedDateStr.pdf');
@@ -158,8 +172,8 @@ class NativePdfService {
           child: repaintBoundary,
         ),
         configuration: ViewConfiguration(
-          size: Size(width, 2000), // Large height to accommodate content
-          devicePixelRatio: 3.0,
+          size: Size(width, 800), // Smaller height to fit on page
+          devicePixelRatio: 2.0, // Lower ratio for smaller file size
         ),
       );
 
@@ -187,7 +201,7 @@ class NativePdfService {
       pipelineOwner.flushCompositingBits();
       pipelineOwner.flushPaint();
 
-      final image = await repaintBoundary.toImage(pixelRatio: 3.0);
+      final image = await repaintBoundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       
       if (byteData != null) {
