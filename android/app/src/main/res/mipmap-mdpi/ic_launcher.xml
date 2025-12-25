@@ -1,5 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    
+    <!-- Orange circle background -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M24,24m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0"/>
+    
+    <!-- Inner light circle -->
+    <path
+        android:fillColor="#FFF3E0"
+        android:pathData="M24,24m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"/>
+    
+    <!-- OM Symbol -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M15,26 Q12,24 13,20 Q14,16 18,15 Q22,14 25,17 L23,20 Q21,18 18,19 Q15,20 15,23 Q15,26 18,25 L19,28 Q15,29 15,26z"/>
+    
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M26,14 Q29,12 33,13 Q37,14 38,18 Q39,22 37,25 L34,23 Q36,21 35,18 Q34,15 30,15 Q27,15 26,18 L23,16 Q24,13 26,14z"/>
+    
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M36,20 Q40,19 42,22 Q44,25 42,30 Q40,35 35,37 L35,34 Q38,33 39,29 Q40,25 38,23 Q36,21 36,22z"/>
+    
+    <!-- Bindu -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M38,10 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0"/>
+
+</vector>
