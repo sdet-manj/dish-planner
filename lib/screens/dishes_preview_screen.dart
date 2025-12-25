@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import '../models/plan_item.dart';
-import '../services/pdf_service.dart';
+import '../services/kannada_pdf_service.dart';
 
 /// Screen to preview selected dishes and generate PDF of dish list
 class DishesPreviewScreen extends StatefulWidget {
@@ -31,14 +30,11 @@ class _DishesPreviewScreenState extends State<DishesPreviewScreen> {
   Future<void> _generateDishListPdf() async {
     setState(() => _generating = true);
     try {
-      final file = await PdfService.generateDishListPdf(
+      await KannadaPdfService.generateDishListPdf(
+        context: context,
         planItems: widget.planItems,
         globalPeople: widget.globalPeople,
         eventDate: widget.selectedDate,
-      );
-      await Printing.sharePdf(
-        bytes: await file.readAsBytes(),
-        filename: file.path.split('/').last,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

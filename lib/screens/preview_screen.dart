@@ -130,27 +130,6 @@ class _PreviewScreenState extends State<PreviewScreen>
     setState(() => _generating = false);
   }
 
-  Future<void> _generateOverallPdf() async {
-    setState(() => _generating = true);
-    try {
-      final file = await PdfService.generateOverallPdf(
-        planItems: widget.planItems,
-        extraIngredients: widget.extraIngredients,
-        globalPeople: widget.globalPeople,
-        eventDate: widget.selectedDate,
-      );
-      await Printing.sharePdf(
-        bytes: await file.readAsBytes(),
-        filename: file.path.split('/').last,
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error generating PDF: $e')),
-      );
-    }
-    setState(() => _generating = false);
-  }
-
   /// Generate Overall PDF with Kannada text
   Future<void> _generateKannadaPdf() async {
     setState(() => _generating = true);
@@ -253,94 +232,11 @@ class _PreviewScreenState extends State<PreviewScreen>
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.summarize, color: Colors.orange),
-                title: const Text('Overall PDF (English)'),
+                title: const Text('Overall PDF (ಕನ್ನಡ)'),
                 subtitle: const Text('Combined ingredient list'),
                 onTap: () {
                   Navigator.pop(context);
-                  _generateOverallPdf();
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.translate, color: Colors.purple),
-                title: const Text('Overall PDF (ಕನ್ನಡ)'),
-                subtitle: const Text('With Kannada text'),
-                onTap: () {
-                  Navigator.pop(context);
                   _generateKannadaPdf();
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                title: const Text('Generate Both PDFs'),
-                subtitle: const Text('Dish-wise & Overall'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  setState(() => _generating = true);
-                  try {
-                    final dishWiseFile = await PdfService.generateDishWisePdf(
-                      planItems: widget.planItems,
-                      extraIngredients: widget.extraIngredients,
-                      globalPeople: widget.globalPeople,
-                      eventDate: widget.selectedDate,
-                    );
-                    final overallFile = await PdfService.generateOverallPdf(
-                      planItems: widget.planItems,
-                      extraIngredients: widget.extraIngredients,
-                      globalPeople: widget.globalPeople,
-                      eventDate: widget.selectedDate,
-                    );
-
-                    if (!mounted) return;
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (context) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('PDFs Ready!',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 16),
-                            ListTile(
-                              leading: const Icon(Icons.description, color: Colors.teal),
-                              title: Text(dishWiseFile.path.split('/').last),
-                              trailing: ElevatedButton(
-                                onPressed: () async {
-                                  Navigator.pop(context);
-                                  await Printing.sharePdf(
-                                    bytes: await dishWiseFile.readAsBytes(),
-                                    filename: dishWiseFile.path.split('/').last,
-                                  );
-                                },
-                                child: const Text('Share'),
-                              ),
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.description, color: Colors.orange),
-                              title: Text(overallFile.path.split('/').last),
-                              trailing: ElevatedButton(
-                                onPressed: () async {
-                                  Navigator.pop(context);
-                                  await Printing.sharePdf(
-                                    bytes: await overallFile.readAsBytes(),
-                                    filename: overallFile.path.split('/').last,
-                                  );
-                                },
-                                child: const Text('Share'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
-                  }
-                  setState(() => _generating = false);
                 },
               ),
             ],

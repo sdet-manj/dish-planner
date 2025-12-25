@@ -82,8 +82,6 @@ class KannadaPdfService {
     // Create the widget to capture
     final contentWidget = _buildPdfContentWidget(
       eventDateStr: eventDateStr,
-      globalPeople: globalPeople,
-      generatedDateStr: generatedDateStr,
       groceriesList: groceriesList,
       vegetablesList: vegetablesList,
       dairyList: dairyList,
@@ -139,11 +137,158 @@ class KannadaPdfService {
     );
   }
 
+  /// Generate Dish List PDF with proper Kannada rendering (for ItemList)
+  static Future<void> generateDishListPdf({
+    required BuildContext context,
+    required List<PlanItem> planItems,
+    required int globalPeople,
+    DateTime? eventDate,
+  }) async {
+    final generatedDateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
+    final eventDateStr = eventDate != null 
+        ? DateFormat('dd/MM/yyyy').format(eventDate)
+        : DateFormat('dd/MM/yyyy').format(DateTime.now());
+
+    final screenshotController = ScreenshotController();
+    
+    // Create the widget to capture
+    final contentWidget = _buildDishListWidget(
+      eventDateStr: eventDateStr,
+      planItems: planItems,
+      globalPeople: globalPeople,
+    );
+
+    // Capture widget as image
+    Uint8List? imageBytes;
+    try {
+      imageBytes = await screenshotController.captureFromWidget(
+        contentWidget,
+        context: context,
+        pixelRatio: 2.0,
+        delay: const Duration(milliseconds: 100),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error capturing content: $e')),
+      );
+      return;
+    }
+
+    if (imageBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to capture content')),
+      );
+      return;
+    }
+
+    // Create PDF with the captured image
+    final pdf = pw.Document();
+    final image = pw.MemoryImage(imageBytes);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(20),
+        build: (pw.Context ctx) {
+          return pw.Center(
+            child: pw.Image(image, fit: pw.BoxFit.contain),
+          );
+        },
+      ),
+    );
+
+    // Save and share
+    final output = await getTemporaryDirectory();
+    final file = File('${output.path}/DishList_$generatedDateStr.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    await Printing.sharePdf(
+      bytes: await file.readAsBytes(),
+      filename: 'DishList_$generatedDateStr.pdf',
+    );
+  }
+
+  /// Build the Dish List widget for PDF
+  static Widget _buildDishListWidget({
+    required String eventDateStr,
+    required List<PlanItem> planItems,
+    required int globalPeople,
+  }) {
+    return Material(
+      color: Colors.white,
+      child: Container(
+        width: 595, // A4 width in points
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'ॐ',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+                const Text(
+                  'ಅಡುಗೆ ಪಟ್ಟಿ / ITEM LIST',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(thickness: 2),
+            const SizedBox(height: 8),
+            
+            // Date and People
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'ದಿನಾಂಕ (Date): $eventDateStr',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                Text(
+                  'ಜನ (People): $globalPeople',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Plain dishes list
+            ...planItems.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              
+              // Check if override is on and different from global
+              final hasOverride = item.overridePeople != null && item.overridePeople != globalPeople;
+              final peopleText = hasOverride ? ' [${item.overridePeople} ಜನ]' : '';
+              
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Text(
+                  '${index + 1}. ${item.dish.nameKn} (${item.dish.nameEn})$peopleText',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Build the widget content for PDF
   static Widget _buildPdfContentWidget({
     required String eventDateStr,
-    required int globalPeople,
-    required String generatedDateStr,
     required List<_MergedIngredient> groceriesList,
     required List<_MergedIngredient> vegetablesList,
     required List<_MergedIngredient> dairyList,
@@ -181,23 +326,10 @@ class KannadaPdfService {
             const Divider(thickness: 2),
             const SizedBox(height: 8),
             
-            // Info row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'ದಿನಾಂಕ (Date): $eventDateStr',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                Text(
-                  'ಜನ (People): $globalPeople',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              ],
-            ),
+            // Date only (no people, no generated date)
             Text(
-              'Generated: $generatedDateStr',
-              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+              'ದಿನಾಂಕ (Date): $eventDateStr',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             ),
             const SizedBox(height: 16),
             

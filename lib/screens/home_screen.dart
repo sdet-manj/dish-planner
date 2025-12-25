@@ -168,17 +168,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    if (result != null && result.isNotEmpty) {
+    if (result != null) {
       setState(() {
-        for (var extra in result) {
-          final existingIndex = _extraIngredients.indexWhere(
-              (e) => e.ingredient.id == extra.ingredient.id);
-          if (existingIndex >= 0) {
-            _extraIngredients[existingIndex] = extra;
-          } else {
-            _extraIngredients.add(extra);
-          }
-        }
+        // Replace entire list with the result (handles both add and remove)
+        _extraIngredients.clear();
+        _extraIngredients.addAll(result);
+        _extraOverrideControllers.clear();
       });
     }
   }
@@ -985,6 +980,7 @@ class _ExtraIngredientPicker extends StatefulWidget {
 
 class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
   final Map<int, _IngredientSelection> _selections = {};
+  final Map<int, TextEditingController> _qtyControllers = {};
 
   @override
   void initState() {
@@ -995,7 +991,18 @@ class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
         qty: extra.qtyFor100,
         unit: extra.unit,
       );
+      _qtyControllers[extra.ingredient.id!] = TextEditingController(
+        text: extra.qtyFor100.toString(),
+      );
     }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _qtyControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   String _getDisplayName(String nameKn, String nameEn) {
@@ -1006,12 +1013,15 @@ class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
     setState(() {
       if (_selections.containsKey(ingredient.id)) {
         _selections.remove(ingredient.id);
+        _qtyControllers[ingredient.id]?.dispose();
+        _qtyControllers.remove(ingredient.id);
       } else {
         _selections[ingredient.id!] = _IngredientSelection(
           ingredient: ingredient,
           qty: 1,
           unit: ingredient.defaultUnit,
         );
+        _qtyControllers[ingredient.id!] = TextEditingController(text: '1');
       }
     });
   }
@@ -1122,7 +1132,7 @@ class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
                                         isDense: true,
                                         contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                       ),
-                                      controller: TextEditingController(text: selection!.qty.toString()),
+                                      controller: _qtyControllers[ingredient.id],
                                       onChanged: (v) {
                                         final val = double.tryParse(v);
                                         if (val != null && val > 0) {
@@ -1156,27 +1166,25 @@ class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _selections.isEmpty
-                    ? null
-                    : () {
-                        final extras = _selections.values
-                            .map((s) => ExtraIngredient(
-                                  ingredient: s.ingredient,
-                                  qtyFor100: s.qty,
-                                  unit: s.unit,
-                                ))
-                            .toList();
-                        Navigator.pop(context, extras);
-                      },
+                onPressed: () {
+                  final extras = _selections.values
+                      .map((s) => ExtraIngredient(
+                            ingredient: s.ingredient,
+                            qtyFor100: s.qty,
+                            unit: s.unit,
+                          ))
+                      .toList();
+                  Navigator.pop(context, extras);
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
+                  backgroundColor: _selections.isEmpty ? Colors.grey : Colors.orange,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Text(
                   _selections.isEmpty
-                      ? 'Select ingredients'
-                      : 'Add ${_selections.length} ingredient${_selections.length > 1 ? 's' : ''}',
+                      ? 'Clear All / Done'
+                      : 'Save ${_selections.length} ingredient${_selections.length > 1 ? 's' : ''}',
                   style: const TextStyle(fontSize: 16),
                 ),
               ),

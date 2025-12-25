@@ -5,42 +5,65 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Background circle -->
+    <!-- Background circle - saffron/orange -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#FF6B00"
         android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
     
-    <!-- OM Symbol (ॐ) as Ganesha representation -->
-    <!-- Main body of OM -->
+    <!-- OM Symbol (ॐ) in white -->
+    <!-- Main "3" shape of OM -->
     <path
-        android:fillColor="#FF6B00"
-        android:pathData="M35,58 Q30,55 32,48 Q34,42 40,40 Q46,38 50,42 L48,46 Q45,44 42,45 Q38,46 37,50 Q36,54 38,56 Q40,58 44,57 L46,61 Q40,63 35,58z"/>
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M32,52 
+            C32,44 38,38 46,38 
+            C52,38 56,42 56,47 
+            C56,51 53,54 48,54 
+            L48,50 
+            C50,50 52,48 52,46 
+            C52,43 49,41 46,41 
+            C41,41 36,45 36,52 
+            C36,60 42,66 50,66 
+            C54,66 58,64 60,61 
+            L63,64 
+            C60,68 55,70 50,70 
+            C39,70 32,62 32,52z"/>
     
-    <!-- Upper curve of OM -->
+    <!-- Upper loop of OM -->
     <path
-        android:fillColor="#FF6B00"
-        android:pathData="M52,38 Q56,35 62,36 Q68,37 70,42 Q72,47 70,52 Q68,56 64,58 L62,54 Q65,52 66,49 Q67,45 65,42 Q63,39 58,39 Q54,39 53,42 L49,40 Q50,37 52,38z"/>
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,42 
+            C58,36 64,32 70,32 
+            C76,32 80,36 80,42 
+            C80,48 76,52 70,52 
+            L70,48 
+            C74,48 76,46 76,42 
+            C76,38 73,36 70,36 
+            C66,36 62,38 62,42 
+            L58,42z"/>
     
-    <!-- Right hook of OM -->
+    <!-- Right tail curve -->
     <path
-        android:fillColor="#FF6B00"
-        android:pathData="M68,48 Q73,46 76,50 Q79,54 77,60 Q75,66 70,70 Q65,74 58,74 L58,70 Q64,70 68,67 Q72,64 73,59 Q74,54 72,51 Q70,49 68,50 L66,48z"/>
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,50 
+            C78,50 82,56 82,64 
+            C82,74 74,80 64,80 
+            L64,76 
+            C72,76 78,72 78,64 
+            C78,58 75,54 70,54 
+            L70,50z"/>
     
-    <!-- Top dot (bindu) -->
+    <!-- Chandrabindu (crescent and dot) -->
+    <!-- Dot -->
     <path
-        android:fillColor="#FF6B00"
-        android:pathData="M72,32 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0"/>
+        android:fillColor="#FFFFFF"
+        android:pathData="M74,26 m-3,0 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0"/>
     
-    <!-- Crescent moon -->
+    <!-- Crescent -->
     <path
-        android:fillColor="#FF6B00"
-        android:pathData="M64,28 Q68,24 74,26 Q72,30 68,30 Q64,30 64,28z"/>
-    
-    <!-- Decorative swirl (trunk representation) -->
-    <path
-        android:fillColor="#FF6B00"
-        android:strokeWidth="2"
-        android:strokeColor="#FF6B00"
-        android:pathData="M42,62 Q38,68 42,74 Q46,78 52,76"/>
+        android:fillColor="#FFFFFF"
+        android:pathData="M68,32 
+            Q74,28 80,32 
+            Q74,34 68,32z"/>
     
 </vector>
