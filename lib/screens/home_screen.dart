@@ -269,8 +269,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String _getDisplayName(String nameKn, String nameEn) {
-    return '$nameKn ($nameEn)';
+  String _getDisplayName(String nameKn, String? nameEn) {
+    return nameEn != null && nameEn.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 
   void _showAddIngredientDialog() {
@@ -819,8 +819,8 @@ class _MultiDishPicker extends StatefulWidget {
 class _MultiDishPickerState extends State<_MultiDishPicker> {
   final Set<int> _selectedIds = {};
 
-  String _getDisplayName(String nameKn, String nameEn) {
-    return '$nameKn ($nameEn)';
+  String _getDisplayName(String nameKn, String? nameEn) {
+    return nameEn != null && nameEn.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 
   void _toggleSelection(int id) {
@@ -1006,8 +1006,8 @@ class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
     super.dispose();
   }
 
-  String _getDisplayName(String nameKn, String nameEn) {
-    return '$nameKn ($nameEn)';
+  String _getDisplayName(String nameKn, String? nameEn) {
+    return nameEn != null && nameEn.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 
   void _toggleSelection(Ingredient ingredient) {
