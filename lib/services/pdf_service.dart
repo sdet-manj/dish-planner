@@ -322,7 +322,7 @@ class PdfService {
         final key = '${ing.ingredientId}_${ing.unit}';
         if (merged.containsKey(key)) {
           merged[key]!.totalQty += qty;
-          merged[key]!.usedIn.add(item.dish.nameEn);
+          merged[key]!.usedIn.add(item.dish.nameEn ?? item.dish.nameKn);
         } else {
           merged[key] = _MergedIngredient(
             ingredientId: ing.ingredientId,
@@ -331,7 +331,7 @@ class PdfService {
             unit: ing.unit,
             category: ing.ingredientCategory ?? 'dinasi',
             totalQty: qty,
-            usedIn: [item.dish.nameEn],
+            usedIn: [item.dish.nameEn ?? item.dish.nameKn],
           );
         }
       }
@@ -349,7 +349,7 @@ class PdfService {
       } else {
         merged[key] = _MergedIngredient(
           ingredientId: extra.ingredient.id!,
-          nameEn: extra.ingredient.nameEn,
+          nameEn: extra.ingredient.nameEn ?? '',
           nameKn: extra.ingredient.nameKn,
           unit: extra.unit,
           category: extra.ingredient.category.name,

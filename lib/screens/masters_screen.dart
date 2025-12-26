@@ -44,8 +44,8 @@ class _MastersScreenState extends State<MastersScreen>
   }
 
   // Helper to get display name in format: ಕನ್ನಡ (English)
-  String _getDisplayName(String nameKn, String nameEn) {
-    return '$nameKn ($nameEn)';
+  String _getDisplayName(String nameKn, String? nameEn) {
+    return nameEn != null && nameEn.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 
   void _showAddIngredientDialog() {

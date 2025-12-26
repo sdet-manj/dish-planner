@@ -23,8 +23,8 @@ class DishesPreviewScreen extends StatefulWidget {
 class _DishesPreviewScreenState extends State<DishesPreviewScreen> {
   bool _generating = false;
 
-  String _getDisplayName(String nameKn, String nameEn) {
-    return '$nameKn ($nameEn)';
+  String _getDisplayName(String nameKn, String? nameEn) {
+    return nameEn != null && nameEn.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 
   Future<void> _generateDishListPdf() async {

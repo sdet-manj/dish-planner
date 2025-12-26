@@ -28,7 +28,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
     super.initState();
     _isEdit = widget.editDish != null;
     if (_isEdit) {
-      _nameEnController.text = widget.editDish!.nameEn;
+      _nameEnController.text = widget.editDish!.nameEn ?? '';
       _nameKnController.text = widget.editDish!.nameKn;
       _subCategoryController.text = widget.editDish!.subCategory ?? '';
     }
@@ -70,8 +70,8 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
   }
 
   // Helper to get display name in format: ಕನ್ನಡ (English)
-  String _getDisplayName(String nameKn, String nameEn) {
-    return '$nameKn ($nameEn)';
+  String _getDisplayName(String nameKn, String? nameEn) {
+    return nameEn != null && nameEn.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 
   void _addIngredient() async {
@@ -538,15 +538,15 @@ class _IngredientPickerState extends State<_IngredientPicker> {
   String _search = '';
 
   // Helper to get display name in format: ಕನ್ನಡ (English)
-  String _getDisplayName(String nameKn, String nameEn) {
-    return '$nameKn ($nameEn)';
+  String _getDisplayName(String nameKn, String? nameEn) {
+    return nameEn != null && nameEn.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 
   @override
   Widget build(BuildContext context) {
     final filtered = widget.ingredients
         .where((i) =>
-            i.nameEn.toLowerCase().contains(_search.toLowerCase()) ||
+            (i.nameEn?.toLowerCase().contains(_search.toLowerCase()) ?? false) ||
             i.nameKn.contains(_search))
         .toList();
 

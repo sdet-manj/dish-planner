@@ -66,7 +66,7 @@ class KannadaPdfService {
         merged[key]!.totalQty += qty;
       } else {
         merged[key] = _MergedIngredient(
-          nameEn: extra.ingredient.nameEn,
+          nameEn: extra.ingredient.nameEn ?? '',
           nameKn: extra.ingredient.nameKn,
           unit: extra.unit,
           category: extra.ingredient.category.name,

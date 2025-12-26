@@ -72,7 +72,7 @@ class _PreviewScreenState extends State<PreviewScreen>
         final key = '${ing.ingredientId}_${ing.unit}';
         if (merged.containsKey(key)) {
           merged[key]!.totalQty += qty;
-          merged[key]!.usedIn.add(item.dish.nameEn);
+          merged[key]!.usedIn.add(item.dish.nameEn ?? item.dish.nameKn);
         } else {
           merged[key] = _MergedIngredient(
             nameEn: ing.ingredientNameEn ?? '',
@@ -80,7 +80,7 @@ class _PreviewScreenState extends State<PreviewScreen>
             unit: ing.unit,
             category: ing.ingredientCategory ?? 'dinasi',
             totalQty: qty,
-            usedIn: [item.dish.nameEn],
+            usedIn: [item.dish.nameEn ?? item.dish.nameKn],
           );
         }
       }
@@ -96,7 +96,7 @@ class _PreviewScreenState extends State<PreviewScreen>
         }
       } else {
         merged[key] = _MergedIngredient(
-          nameEn: extra.ingredient.nameEn,
+          nameEn: extra.ingredient.nameEn ?? '',
           nameKn: extra.ingredient.nameKn,
           unit: extra.unit,
           category: extra.ingredient.category.name,
