@@ -650,7 +650,7 @@ class KannadaPdfService {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Text(
-                  '${index + 1}. ${item.dish.nameKn} (${item.dish.nameEn})$peopleText',
+                  '${index + 1}. ${item.dish.getFullDisplayName()}$peopleText',
                   style: const TextStyle(fontSize: 16),
                 ),
               );

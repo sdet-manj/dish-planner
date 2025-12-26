@@ -325,7 +325,7 @@ class _PreviewScreenState extends State<PreviewScreen>
                             padding: const EdgeInsets.all(12),
                             color: Colors.teal[50],
                             child: Text(
-                              '${_getDisplayName(item.dish.nameKn, item.dish.nameEn)} — $effectivePeople people',
+                              '${item.dish.getFullDisplayName()} — $effectivePeople people',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,

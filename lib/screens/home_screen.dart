@@ -690,7 +690,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: ListTile(
                                     dense: true,
                                     title: Text(
-                                      _getDisplayName(item.dish.nameKn, item.dish.nameEn),
+                                      item.dish.getFullDisplayName(),
                                       style: const TextStyle(fontSize: 14),
                                     ),
                                     subtitle: Text('For $effectivePeople people'),
@@ -924,7 +924,7 @@ class _MultiDishPickerState extends State<_MultiDishPicker> {
                           onChanged: (_) => _toggleSelection(dish.id!),
                           activeColor: Colors.teal,
                         ),
-                        title: Text(_getDisplayName(dish.nameKn, dish.nameEn)),
+                        title: Text(dish.getFullDisplayName()),
                         onTap: () => _toggleSelection(dish.id!),
                       );
                     },

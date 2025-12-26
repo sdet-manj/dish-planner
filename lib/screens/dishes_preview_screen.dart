@@ -111,7 +111,7 @@ class _DishesPreviewScreenState extends State<DishesPreviewScreen> {
                     ),
                   ),
                   title: Text(
-                    _getDisplayName(item.dish.nameKn, item.dish.nameEn),
+                    item.dish.getFullDisplayName(),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   subtitle: Text('For $effectivePeople people'),
