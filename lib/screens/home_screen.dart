@@ -289,17 +289,17 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
-                  controller: enController,
+                  controller: knController,
                   decoration: const InputDecoration(
-                    labelText: 'Name (English)',
+                    labelText: 'Name (ಕನ್ನಡ) *',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: knController,
+                  controller: enController,
                   decoration: const InputDecoration(
-                    labelText: 'Name (ಕನ್ನಡ)',
+                    labelText: 'Name (English) - Optional',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -342,14 +342,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (enController.text.isEmpty || knController.text.isEmpty) {
+                if (knController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill both names')),
+                    const SnackBar(content: Text('Please fill Kannada name')),
                   );
                   return;
                 }
+                final nameEn = enController.text.trim();
                 await _db.insertIngredient(Ingredient(
-                  nameEn: enController.text.trim(),
+                  nameEn: nameEn.isNotEmpty ? nameEn : null,
                   nameKn: knController.text.trim(),
                   defaultUnit: unit,
                   category: category,

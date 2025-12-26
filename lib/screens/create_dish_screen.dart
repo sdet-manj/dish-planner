@@ -17,6 +17,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
   final _db = DatabaseHelper.instance;
   final _nameEnController = TextEditingController();
   final _nameKnController = TextEditingController();
+  final _subCategoryController = TextEditingController();
   List<Ingredient> _allIngredients = [];
   List<_SelectedIngredient> _selectedIngredients = [];
   bool _loading = true;
@@ -29,6 +30,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
     if (_isEdit) {
       _nameEnController.text = widget.editDish!.nameEn;
       _nameKnController.text = widget.editDish!.nameKn;
+      _subCategoryController.text = widget.editDish!.subCategory ?? '';
     }
     _loadData();
   }
@@ -37,6 +39,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
   void dispose() {
     _nameEnController.dispose();
     _nameKnController.dispose();
+    _subCategoryController.dispose();
     for (var si in _selectedIngredients) {
       si.qtyController.dispose();
     }
@@ -122,17 +125,17 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
-                  controller: enController,
+                  controller: knController,
                   decoration: const InputDecoration(
-                    labelText: 'Name (English)',
+                    labelText: 'Name (Kannada) *',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: knController,
+                  controller: enController,
                   decoration: const InputDecoration(
-                    labelText: 'Name (Kannada)',
+                    labelText: 'Name (English) - Optional',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -175,21 +178,22 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (enController.text.isEmpty || knController.text.isEmpty) {
+                if (knController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill both names')),
+                    const SnackBar(content: Text('Please fill Kannada name')),
                   );
                   return;
                 }
+                final nameEn = enController.text.trim();
                 final id = await _db.insertIngredient(Ingredient(
-                  nameEn: enController.text.trim(),
+                  nameEn: nameEn.isNotEmpty ? nameEn : null,
                   nameKn: knController.text.trim(),
                   defaultUnit: unit,
                   category: category,
                 ));
                 final newIng = Ingredient(
                   id: id,
-                  nameEn: enController.text.trim(),
+                  nameEn: nameEn.isNotEmpty ? nameEn : null,
                   nameKn: knController.text.trim(),
                   defaultUnit: unit,
                   category: category,
@@ -233,9 +237,9 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
   }
 
   Future<void> _save() async {
-    if (_nameEnController.text.isEmpty || _nameKnController.text.isEmpty) {
+    if (_nameKnController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill dish name in both languages')),
+        const SnackBar(content: Text('Please fill dish name in Kannada')),
       );
       return;
     }
@@ -258,17 +262,22 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
     }
 
     int dishId;
+    final nameEn = _nameEnController.text.trim();
+    final subCat = _subCategoryController.text.trim();
+    
     if (_isEdit) {
       await _db.updateDish(Dish(
         id: widget.editDish!.id,
-        nameEn: _nameEnController.text.trim(),
+        nameEn: nameEn.isNotEmpty ? nameEn : null,
         nameKn: _nameKnController.text.trim(),
+        subCategory: subCat.isNotEmpty ? subCat : null,
       ));
       dishId = widget.editDish!.id!;
     } else {
       dishId = await _db.insertDish(Dish(
-        nameEn: _nameEnController.text.trim(),
+        nameEn: nameEn.isNotEmpty ? nameEn : null,
         nameKn: _nameKnController.text.trim(),
+        subCategory: subCat.isNotEmpty ? subCat : null,
       ));
     }
 
@@ -340,18 +349,28 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
-                    controller: _nameEnController,
+                    controller: _nameKnController,
                     decoration: const InputDecoration(
-                      labelText: 'Dish name (English)',
+                      labelText: 'Dish name (Kannada) *',
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    controller: _nameKnController,
+                    controller: _nameEnController,
                     decoration: const InputDecoration(
-                      labelText: 'Dish name (Kannada)',
+                      labelText: 'Dish name (English) - Optional',
                       border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _subCategoryController,
+                    decoration: const InputDecoration(
+                      labelText: 'Sub-category (Optional)',
+                      hintText: 'e.g., Hesaru Bele, Kadlebele',
+                      border: OutlineInputBorder(),
+                      helperText: 'Optional: Add variant/type if dish has sub-categories',
                     ),
                   ),
                   const SizedBox(height: 12),

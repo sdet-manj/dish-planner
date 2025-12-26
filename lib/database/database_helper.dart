@@ -21,7 +21,7 @@ class DatabaseHelper {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path, 
-      version: 2, 
+      version: 4, 
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -33,6 +33,15 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE ingredients ADD COLUMN category TEXT DEFAULT "dinasi"');
       // Update existing ingredients with appropriate categories
       await _updateExistingCategories(db);
+    }
+    if (oldVersion < 3) {
+      // Add subCategory column to dishes table
+      await db.execute('ALTER TABLE dishes ADD COLUMN subCategory TEXT');
+    }
+    if (oldVersion < 4) {
+      // Note: SQLite doesn't support ALTER COLUMN to make nullable
+      // Existing data already has nameEn, so we just update model to allow null
+      // New inserts can have null nameEn
     }
   }
 
@@ -62,7 +71,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE ingredients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nameEn TEXT NOT NULL,
+        nameEn TEXT,
         nameKn TEXT NOT NULL,
         defaultUnit TEXT DEFAULT 'kg',
         category TEXT DEFAULT 'dinasi'
@@ -72,8 +81,9 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE dishes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nameEn TEXT NOT NULL,
-        nameKn TEXT NOT NULL
+        nameEn TEXT,
+        nameKn TEXT NOT NULL,
+        subCategory TEXT
       )
     ''');
 

@@ -42,14 +42,14 @@ extension IngredientCategoryExtension on IngredientCategory {
 
 class Ingredient {
   final int? id;
-  final String nameEn;
-  final String nameKn;
+  final String? nameEn; // Optional - English name
+  final String nameKn; // Required - Kannada name
   final String defaultUnit;
   final IngredientCategory category;
 
   Ingredient({
     this.id,
-    required this.nameEn,
+    this.nameEn,
     required this.nameKn,
     this.defaultUnit = 'kg',
     this.category = IngredientCategory.dinasi,
@@ -88,9 +88,9 @@ class Ingredient {
       Ingredient.fromMap(json);
 
   String getDisplayName(String lang) {
-    if (lang == 'EN') return nameEn;
+    if (lang == 'EN') return nameEn ?? nameKn;
     if (lang == 'KN') return nameKn;
-    return '$nameEn / $nameKn';
+    return nameEn != null && nameEn!.isNotEmpty ? '$nameKn ($nameEn)' : nameKn;
   }
 }
 
