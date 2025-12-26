@@ -300,20 +300,6 @@ class KannadaPdfService {
     }
   }
 
-    // Save and share
-    final output = await getTemporaryDirectory();
-    final filename = suffix.isNotEmpty 
-        ? 'Ingredients_${dateForFilename}_$suffix.pdf'
-        : 'Ingredients_$dateForFilename.pdf';
-    final file = File('${output.path}/$filename');
-    await file.writeAsBytes(await pdf.save());
-
-    await Printing.sharePdf(
-      bytes: await file.readAsBytes(),
-      filename: filename,
-    );
-  }
-
   /// Generate Dish List PDF with proper Kannada rendering (for ItemList)
   static Future<void> generateDishListPdf({
     required BuildContext context,
