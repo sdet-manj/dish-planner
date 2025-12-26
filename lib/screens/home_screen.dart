@@ -5,6 +5,7 @@ import '../models/dish.dart';
 import '../models/ingredient.dart';
 import '../models/plan_item.dart';
 import '../models/extra_ingredient.dart';
+import '../services/kannada_pdf_service.dart';
 import 'masters_screen.dart';
 import 'create_dish_screen.dart';
 import 'preview_screen.dart';
@@ -403,15 +404,41 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MastersScreen()),
-              );
-              _loadData();
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) async {
+              if (value == 'settings') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MastersScreen()),
+                );
+                _loadData();
+              } else if (value == 'test_kannada') {
+                await KannadaPdfService.generateKannadaDemoPdf(context);
+              }
             },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 20),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'test_kannada',
+                child: Row(
+                  children: [
+                    Icon(Icons.article, size: 20),
+                    SizedBox(width: 8),
+                    Text('Test Kannada PDF'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

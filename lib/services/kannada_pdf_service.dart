@@ -295,6 +295,70 @@ class KannadaPdfService {
     }
   }
 
+  /// Minimal demo PDF using Syncfusion (full shaping) for Kannada verification
+  static Future<void> generateKannadaDemoPdf(BuildContext context) async {
+    try {
+      final generatedDateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
+
+      // Load local Noto Sans Kannada font
+      final fontData = await rootBundle.load('assets/fonts/NotoSansKannada-Regular.ttf');
+      final fontBytes = fontData.buffer.asUint8List();
+      final knFont = sf.PdfTrueTypeFont(fontBytes, 12);
+      final knFontBold = sf.PdfTrueTypeFont(fontBytes, 14, style: sf.PdfFontStyle.bold);
+
+      final document = sf.PdfDocument();
+      final page = document.pages.add();
+      final clientSize = page.getClientSize();
+
+      double top = 0;
+      void drawText(String text, sf.PdfTrueTypeFont font,
+          {double lineHeight = 20, sf.PdfBrush? brush}) {
+        page.graphics.drawString(
+          text,
+          font,
+          brush: brush ?? sf.PdfBrushes.black,
+          bounds: Rect.fromLTWH(0, top, clientSize.width, lineHeight),
+        );
+        top += lineHeight;
+      }
+
+      // Header
+      drawText('ॐ  ನಮಸ್ಕಾರ ಕನ್ನಡ', knFontBold, lineHeight: 22, brush: sf.PdfBrushes.darkOrange);
+      drawText('ದಿನಾಂಕ (Date): $generatedDateStr', knFontBold, lineHeight: 18);
+      top += 6;
+
+      // Sample list with complex Kannada conjuncts
+      drawText('ಸ್ಯಾಂಪಲ್ ಪಟ್ಟಿ:', knFontBold, lineHeight: 18);
+      drawText('• ಅಕ್ಕಿ (Rice) - 5 kg', knFont, lineHeight: 18);
+      drawText('• ಬೇಳೆ (Dal) - 2 kg', knFont, lineHeight: 18);
+      drawText('• ತುಪ್ಪ (Ghee) - 1 kg', knFont, lineHeight: 18);
+      drawText('• ತರಕಾರಿ (Vegetables) - 10 kg', knFont, lineHeight: 18);
+      drawText('• ಹುಣಸೆಹಣ್ಣು (Tamarind) - 500 g', knFont, lineHeight: 18);
+      drawText('• ಬೆಂಗಳೂರು (Bengaluru)', knFont, lineHeight: 18);
+      top += 6;
+      
+      // Test complex conjuncts
+      drawText('ಸಂಕೀರ್ಣ ಅಕ್ಷರಗಳು (Complex Conjuncts):', knFontBold, lineHeight: 18);
+      drawText('ದಿನಾಂಕ, ಸಾಮಾನು, ಪ್ರಮಾಣ, ಮುಂದುವರೆದಿದೆ', knFont, lineHeight: 18);
+      drawText('ಶ್ರೀ, ಕ್ಷೇತ್ರ, ಜ್ಞಾನ, ನ್ಯಾಯ', knFont, lineHeight: 18);
+
+      final bytesList = await document.save();
+      document.dispose();
+      final bytes = Uint8List.fromList(bytesList);
+
+      final filename = 'KannadaDemo_$generatedDateStr.pdf';
+      final output = await getTemporaryDirectory();
+      final file = File('${output.path}/$filename');
+      await file.writeAsBytes(bytes, flush: true);
+
+      await Printing.sharePdf(bytes: bytes, filename: filename);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kannada demo PDF error: $e')),
+      );
+    }
+  }
+
   /// Fallback PDF generation using PDF package directly (when screenshots fail)
   static Future<void> _generatePdfFallback({
     required BuildContext context,
@@ -987,58 +1051,3 @@ class _PdfPageData {
     this.isFirstPage = false,
   });
 }
-
-  /// Minimal demo PDF using Syncfusion (full shaping) for Kannada verification
-  static Future<void> generateKannadaDemoPdf(BuildContext context) async {
-    try {
-      final generatedDateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
-
-      // Load local Noto Sans Kannada font
-      final fontData = await rootBundle.load('assets/fonts/NotoSansKannada-Regular.ttf');
-      final fontBytes = fontData.buffer.asUint8List();
-      final knFont = sf.PdfTrueTypeFont(fontBytes, 12);
-      final knFontBold = sf.PdfTrueTypeFont(fontBytes, 14, style: sf.PdfFontStyle.bold);
-
-      final document = sf.PdfDocument();
-      final page = document.pages.add();
-      final clientSize = page.getClientSize();
-
-      double top = 0;
-      void drawText(String text, sf.PdfTrueTypeFont font,
-          {double lineHeight = 20, sf.PdfBrush? brush}) {
-        page.graphics.drawString(
-          text,
-          font,
-          brush: brush ?? sf.PdfBrushes.black,
-          bounds: Rect.fromLTWH(0, top, clientSize.width, lineHeight),
-        );
-        top += lineHeight;
-      }
-
-      // Header
-      drawText('ॐ  ನಮಸ್ಕಾರ ಕನ್ನಡ', knFontBold, lineHeight: 22, brush: sf.PdfBrushes.darkOrange);
-      drawText('ದಿನಾಂಕ (Date): $generatedDateStr', knFontBold, lineHeight: 18);
-      top += 6;
-
-      // Sample list
-      drawText('ಸ್ಯಾಂಪಲ್ ಪಟ್ಟಿ:', knFontBold, lineHeight: 18);
-      drawText('• ಅಕ್ಕಿ (Rice) - 5 kg', knFont, lineHeight: 18);
-      drawText('• ಬೇಳೆ (Dal) - 2 kg', knFont, lineHeight: 18);
-      drawText('• ತುಪ್ಪ (Ghee) - 1 kg', knFont, lineHeight: 18);
-      drawText('• ತರಕಾರಿ (Vegetables) - 10 kg', knFont, lineHeight: 18);
-
-      final bytes = document.save();
-      document.dispose();
-
-      final filename = 'KannadaDemo_$generatedDateStr.pdf';
-      final output = await getTemporaryDirectory();
-      final file = File('${output.path}/$filename');
-      await file.writeAsBytes(bytes, flush: true);
-
-      await Printing.sharePdf(bytes: bytes, filename: filename);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kannada demo PDF error: $e')),
-      );
-    }
-  }
