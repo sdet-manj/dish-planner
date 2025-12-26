@@ -15,7 +15,7 @@ import '../models/extra_ingredient.dart';
 /// PDF service that renders Kannada correctly by capturing Flutter widgets as images
 class KannadaPdfService {
   
-  /// Generate Overall PDF with proper Kannada rendering
+  /// Generate Overall PDF with perfect Kannada - captures rows as images
   static Future<void> generateAndSharePdf({
     required BuildContext context,
     required List<PlanItem> planItems,
@@ -35,172 +35,270 @@ class KannadaPdfService {
       if (suffix == null) return; // User cancelled
     }
 
-    // Merge all ingredients by category
-    final Map<String, _MergedIngredient> merged = {};
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generating PDF...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
 
-    // From dishes
-    for (var item in planItems) {
-      final effectivePeople = item.getEffectivePeople(globalPeople);
-      for (var ing in item.ingredients) {
-        final qty = ing.getScaledQty(effectivePeople);
-        final key = '${ing.ingredientId}_${ing.unit}';
+    try {
+      // Merge all ingredients by category
+      final Map<String, _MergedIngredient> merged = {};
+
+      // From dishes
+      for (var item in planItems) {
+        final effectivePeople = item.getEffectivePeople(globalPeople);
+        for (var ing in item.ingredients) {
+          final qty = ing.getScaledQty(effectivePeople);
+          final key = '${ing.ingredientId}_${ing.unit}';
+          if (merged.containsKey(key)) {
+            merged[key]!.totalQty += qty;
+          } else {
+            merged[key] = _MergedIngredient(
+              nameEn: ing.ingredientNameEn ?? '',
+              nameKn: ing.ingredientNameKn ?? '',
+              unit: ing.unit,
+              category: ing.ingredientCategory ?? 'dinasi',
+              totalQty: qty,
+            );
+          }
+        }
+      }
+
+      // From extra ingredients
+      for (var extra in extraIngredients) {
+        final qty = extra.getScaledQty(globalPeople);
+        final key = '${extra.ingredient.id}_${extra.unit}';
         if (merged.containsKey(key)) {
           merged[key]!.totalQty += qty;
         } else {
           merged[key] = _MergedIngredient(
-            nameEn: ing.ingredientNameEn ?? '',
-            nameKn: ing.ingredientNameKn ?? '',
-            unit: ing.unit,
-            category: ing.ingredientCategory ?? 'dinasi',
+            nameEn: extra.ingredient.nameEn,
+            nameKn: extra.ingredient.nameKn,
+            unit: extra.unit,
+            category: extra.ingredient.category.name,
             totalQty: qty,
           );
         }
       }
-    }
 
-    // From extra ingredients
-    for (var extra in extraIngredients) {
-      final qty = extra.getScaledQty(globalPeople);
-      final key = '${extra.ingredient.id}_${extra.unit}';
-      if (merged.containsKey(key)) {
-        merged[key]!.totalQty += qty;
-      } else {
-        merged[key] = _MergedIngredient(
-          nameEn: extra.ingredient.nameEn,
-          nameKn: extra.ingredient.nameKn,
-          unit: extra.unit,
-          category: extra.ingredient.category.name,
-          totalQty: qty,
-        );
-      }
-    }
+      // Group by category
+      final groceriesList = merged.values.where((m) => m.category == 'dinasi').toList()
+        ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
+      final vegetablesList = merged.values.where((m) => m.category == 'vegetable').toList()
+        ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
+      final dairyList = merged.values.where((m) => m.category == 'dairy').toList()
+        ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
 
-    // Group by category
-    final groceriesList = merged.values.where((m) => m.category == 'dinasi').toList()
-      ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
-    final vegetablesList = merged.values.where((m) => m.category == 'vegetable').toList()
-      ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
-    final dairyList = merged.values.where((m) => m.category == 'dairy').toList()
-      ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
-
-    final screenshotController = ScreenshotController();
-    final pdf = pw.Document();
-    
-    // Max items per page to avoid overflow (~15 items fit well on A4 with good fonts)
-    const int maxItemsPerPage = 15;
-    
-    // Capture header section
-    final headerWidget = _buildHeaderWidget(eventDateStr: eventDateStr);
-    Uint8List? headerBytes;
-    try {
-      headerBytes = await screenshotController.captureFromWidget(
-        headerWidget,
-        context: context,
-        pixelRatio: 2.0,
-        delay: const Duration(milliseconds: 50),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error capturing header: $e')),
-      );
-      return;
-    }
-
-    // Helper to split list into chunks
-    List<List<T>> splitIntoChunks<T>(List<T> list, int chunkSize) {
-      List<List<T>> chunks = [];
-      for (var i = 0; i < list.length; i += chunkSize) {
-        chunks.add(list.sublist(i, i + chunkSize > list.length ? list.length : i + chunkSize));
-      }
-      return chunks;
-    }
-
-    // Helper to capture a category section with error handling
-    Future<Uint8List?> captureSection(Widget widget) async {
-      try {
-        return await screenshotController.captureFromWidget(
-          widget,
-          context: context,
-          pixelRatio: 2.0,
-          delay: const Duration(milliseconds: 100),
-        );
-      } catch (e) {
-        debugPrint('Error capturing section: $e');
-        return null;
-      }
-    }
-
-    // Capture each category section, splitting into chunks if needed
-    List<_PageSection> pageSections = [];
-    
-    if (groceriesList.isNotEmpty) {
-      final chunks = splitIntoChunks(groceriesList, maxItemsPerPage);
-      for (int i = 0; i < chunks.length; i++) {
-        final title = i == 0 ? 'ದಿನಸಿ (Groceries)' : 'ದಿನಸಿ (Groceries) - ಮುಂದುವರೆದಿದೆ';
-        final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF009688));
-        final bytes = await captureSection(widget);
-        if (bytes != null) {
-          pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
-        }
-      }
-    }
-    
-    if (vegetablesList.isNotEmpty) {
-      final chunks = splitIntoChunks(vegetablesList, maxItemsPerPage);
-      for (int i = 0; i < chunks.length; i++) {
-        final title = i == 0 ? 'ತರಕಾರಿ (Vegetables)' : 'ತರಕಾರಿ (Vegetables) - ಮುಂದುವರೆದಿದೆ';
-        final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF4CAF50));
-        final bytes = await captureSection(widget);
-        if (bytes != null) {
-          pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
-        }
-      }
-    }
-    
-    if (dairyList.isNotEmpty) {
-      final chunks = splitIntoChunks(dairyList, maxItemsPerPage);
-      for (int i = 0; i < chunks.length; i++) {
-        final title = i == 0 ? 'ಹಾಲು/ಮೊಸರು (Dairy)' : 'ಹಾಲು/ಮೊಸರು (Dairy) - ಮುಂದುವರೆದಿದೆ';
-        final widget = _buildCategorySectionWidget(title, chunks[i], const Color(0xFF2196F3));
-        final bytes = await captureSection(widget);
-        if (bytes != null) {
-          pageSections.add(_PageSection(bytes: bytes, isFirstOfCategory: i == 0));
-        }
-      }
-    }
-
-    // If no sections captured, show error
-    if (pageSections.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Could not capture ingredient sections')),
-      );
-      return;
-    }
-
-    // Add pages
-    if (headerBytes != null) {
-      final headerImage = pw.MemoryImage(headerBytes);
+      final screenshotController = ScreenshotController();
+      final pdf = pw.Document();
       
-      for (int i = 0; i < pageSections.length; i++) {
-        final sectionImage = pw.MemoryImage(pageSections[i].bytes);
+      // Capture helper - captures a small widget
+      Future<Uint8List?> captureWidget(Widget widget) async {
+        try {
+          return await screenshotController.captureFromWidget(
+            Material(color: Colors.white, child: widget),
+            context: context,
+            pixelRatio: 2.0,
+            delay: const Duration(milliseconds: 20),
+          );
+        } catch (e) {
+          debugPrint('Capture error: $e');
+          return null;
+        }
+      }
+
+      // Collect all row images for each category
+      List<_PdfPageData> pages = [];
+      List<pw.Widget> currentPageWidgets = [];
+      int itemsOnCurrentPage = 0;
+      const int maxItemsPerPage = 18;
+      bool isFirstPage = true;
+
+      // Capture header
+      final headerBytes = await captureWidget(
+        Container(
+          width: 550,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('ॐ', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                  const Text('ಸಾಮಾನು ಪಟ್ಟಿ / GROCERY LIST', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const Divider(thickness: 2),
+              Text('ದಿನಾಂಕ (Date): $eventDateStr', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            ],
+          ),
+        ),
+      );
+
+      if (headerBytes != null) {
+        currentPageWidgets.add(pw.Image(pw.MemoryImage(headerBytes)));
+        currentPageWidgets.add(pw.SizedBox(height: 8));
+      }
+
+      // Process each category
+      Future<void> processCategory(String title, List<_MergedIngredient> items, Color color) async {
+        if (items.isEmpty) return;
+
+        // Category header
+        final categoryHeaderBytes = await captureWidget(
+          Container(
+            width: 550,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            color: color,
+            child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+          ),
+        );
+
+        // Table header
+        final tableHeaderBytes = await captureWidget(
+          Container(
+            width: 550,
+            color: Colors.grey[200],
+            child: const Row(
+              children: [
+                Expanded(flex: 3, child: Padding(padding: EdgeInsets.all(6), child: Text('ಸಾಮಾನು / Ingredient', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                SizedBox(width: 70, child: Padding(padding: EdgeInsets.all(6), child: Text('ಪ್ರಮಾಣ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                SizedBox(width: 50, child: Padding(padding: EdgeInsets.all(6), child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+              ],
+            ),
+          ),
+        );
+
+        // Check if we need a new page before category
+        if (itemsOnCurrentPage > maxItemsPerPage - 3) {
+          pages.add(_PdfPageData(widgets: List.from(currentPageWidgets), isFirstPage: isFirstPage));
+          currentPageWidgets = [];
+          itemsOnCurrentPage = 0;
+          isFirstPage = false;
+        }
+
+        if (categoryHeaderBytes != null) {
+          currentPageWidgets.add(pw.Image(pw.MemoryImage(categoryHeaderBytes)));
+        }
+        if (tableHeaderBytes != null) {
+          currentPageWidgets.add(pw.Image(pw.MemoryImage(tableHeaderBytes)));
+        }
+        itemsOnCurrentPage += 2;
+
+        // Process each item
+        for (var item in items) {
+          final converted = _convertUnit(item.totalQty, item.unit);
+          final rowBytes = await captureWidget(
+            Container(
+              width: 550,
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 0.5))),
+              child: Row(
+                children: [
+                  Expanded(flex: 3, child: Padding(padding: const EdgeInsets.all(6), child: Text('${item.nameKn} (${item.nameEn})', style: const TextStyle(fontSize: 12)))),
+                  SizedBox(width: 70, child: Padding(padding: const EdgeInsets.all(6), child: Text(_formatQty(converted['qty'] as double), style: const TextStyle(fontSize: 12)))),
+                  SizedBox(width: 50, child: Padding(padding: const EdgeInsets.all(6), child: Text(converted['unit'] as String, style: const TextStyle(fontSize: 12)))),
+                ],
+              ),
+            ),
+          );
+
+          if (rowBytes != null) {
+            // Check if we need a new page
+            if (itemsOnCurrentPage >= maxItemsPerPage) {
+              pages.add(_PdfPageData(widgets: List.from(currentPageWidgets), isFirstPage: isFirstPage));
+              currentPageWidgets = [];
+              itemsOnCurrentPage = 0;
+              isFirstPage = false;
+              
+              // Add continuation header
+              final contHeaderBytes = await captureWidget(
+                Container(
+                  width: 550,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  color: color,
+                  child: Text('$title (ಮುಂದುವರೆದಿದೆ)', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+              );
+              if (contHeaderBytes != null) {
+                currentPageWidgets.add(pw.Image(pw.MemoryImage(contHeaderBytes)));
+              }
+              if (tableHeaderBytes != null) {
+                currentPageWidgets.add(pw.Image(pw.MemoryImage(tableHeaderBytes)));
+              }
+              itemsOnCurrentPage += 2;
+            }
+
+            currentPageWidgets.add(pw.Image(pw.MemoryImage(rowBytes)));
+            itemsOnCurrentPage++;
+          }
+        }
+
+        currentPageWidgets.add(pw.SizedBox(height: 12));
+      }
+
+      // Process all categories
+      await processCategory('ದಿನಸಿ (Groceries)', groceriesList, const Color(0xFF009688));
+      await processCategory('ತರಕಾರಿ (Vegetables)', vegetablesList, const Color(0xFF4CAF50));
+      await processCategory('ಹಾಲು/ಮೊಸರು (Dairy)', dairyList, const Color(0xFF2196F3));
+
+      // Add remaining widgets as last page
+      if (currentPageWidgets.isNotEmpty) {
+        pages.add(_PdfPageData(widgets: currentPageWidgets, isFirstPage: isFirstPage));
+      }
+
+      // Build PDF pages
+      for (var page in pages) {
         pdf.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.a4,
             margin: const pw.EdgeInsets.all(20),
-            build: (pw.Context ctx) {
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  if (i == 0) pw.Image(headerImage, fit: pw.BoxFit.contain),
-                  if (i == 0) pw.SizedBox(height: 10),
-                  pw.Image(sectionImage, fit: pw.BoxFit.contain),
-                ],
-              );
-            },
+            build: (ctx) => pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: page.widgets,
+            ),
           ),
         );
       }
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      // Save and share
+      final output = await getTemporaryDirectory();
+      final filename = suffix.isNotEmpty 
+          ? 'Ingredients_${dateForFilename}_$suffix.pdf'
+          : 'Ingredients_$dateForFilename.pdf';
+      final file = File('${output.path}/$filename');
+      await file.writeAsBytes(await pdf.save());
+
+      await Printing.sharePdf(
+        bytes: await file.readAsBytes(),
+        filename: filename,
+      );
+    } catch (e) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating PDF: $e')),
+      );
     }
+  }
 
     // Save and share
     final output = await getTemporaryDirectory();
@@ -779,5 +877,27 @@ class _PageSection {
   _PageSection({
     required this.bytes,
     this.isFirstOfCategory = false,
+  });
+}
+
+class _CategoryData {
+  final String title;
+  final List<_MergedIngredient> items;
+  final PdfColor color;
+
+  _CategoryData({
+    required this.title,
+    required this.items,
+    required this.color,
+  });
+}
+
+class _PdfPageData {
+  final List<pw.Widget> widgets;
+  final bool isFirstPage;
+
+  _PdfPageData({
+    required this.widgets,
+    this.isFirstPage = false,
   });
 }
