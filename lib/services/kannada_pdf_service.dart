@@ -3,14 +3,12 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:screenshot/screenshot.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
 import '../models/plan_item.dart';
 import '../models/extra_ingredient.dart';
 
@@ -85,20 +83,24 @@ class KannadaPdfService {
     final dairyList = merged.values.where((m) => m.category == 'dairy').toList()
       ..sort((a, b) => a.nameEn.compareTo(b.nameEn));
 
-    // Show loading indicator
+    // Show loading indicator with ValueNotifier for updates
+    final progressNotifier = ValueNotifier<String>('Starting...');
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const Center(
+      builder: (ctx) => Center(
         child: Card(
           child: Padding(
-            padding: EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Generating PDF...'),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                ValueListenableBuilder<String>(
+                  valueListenable: progressNotifier,
+                  builder: (_, value, __) => Text(value),
+                ),
               ],
             ),
           ),
@@ -110,44 +112,60 @@ class KannadaPdfService {
       final screenshotController = ScreenshotController();
       final pdf = pw.Document();
 
-      Future<Uint8List?> captureWidget(Widget widget) async {
-        try {
-          return await screenshotController.captureFromWidget(
-            Material(color: Colors.white, child: widget),
-            context: context,
-            pixelRatio: 2.0,
-            delay: const Duration(milliseconds: 30),
-          );
-        } catch (e) {
-          debugPrint('Capture error: $e');
-          return null;
+      // Capture widget with retry logic and longer delays
+      int totalCaptures = 0;
+      int failedCaptures = 0;
+      
+      Future<Uint8List?> captureWidget(Widget widget, {int maxRetries = 2}) async {
+        totalCaptures++;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            await Future.delayed(Duration(milliseconds: 100 * attempt)); // More breathing room
+            final result = await screenshotController.captureFromWidget(
+              Material(color: Colors.white, child: widget),
+              context: context,
+              pixelRatio: 2.0,
+              delay: Duration(milliseconds: 200 + (attempt * 100)), // Longer delays
+            );
+            if (result != null && result.isNotEmpty) return result;
+          } catch (e) {
+            debugPrint('Capture attempt $attempt/$maxRetries failed: $e');
+            if (attempt == maxRetries) {
+              failedCaptures++;
+              return null;
+            }
+          }
         }
+        failedCaptures++;
+        return null;
       }
 
       // Build pages with captured widgets
       List<_PdfPageData> pages = [];
       List<pw.Widget> currentPageWidgets = [];
       int itemsOnCurrentPage = 0;
-      const int maxItemsPerPage = 18;
+      const int maxItemsPerPage = 20; // Smaller widgets allow more items
       bool isFirstPage = true;
 
       // Header
+      progressNotifier.value = 'Preparing header...';
       final headerBytes = await captureWidget(
         Container(
-          width: 550,
-          padding: const EdgeInsets.all(12),
+          width: 500,
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [
-                  Text('ॐ', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
-                  Text('ಸಾಮಾನು ಪಟ್ಟಿ / GROCERY LIST', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('ॐ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                  Text('ಸಾಮಾನು ಪಟ್ಟಿ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const Divider(thickness: 2),
-              Text('ದಿನಾಂಕ (Date): $eventDateStr', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Divider(thickness: 1.5),
+              Text('ದಿನಾಂಕ: $eventDateStr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ],
           ),
         ),
@@ -155,30 +173,33 @@ class KannadaPdfService {
 
       if (headerBytes != null) {
         currentPageWidgets.add(pw.Image(pw.MemoryImage(headerBytes)));
-        currentPageWidgets.add(pw.SizedBox(height: 8));
+        currentPageWidgets.add(pw.SizedBox(height: 6));
       }
 
       Future<void> processCategory(String title, List<_MergedIngredient> items, Color color) async {
         if (items.isEmpty) return;
 
+        progressNotifier.value = 'Processing $title...';
+        
         final catHeaderBytes = await captureWidget(
           Container(
-            width: 550,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            width: 500,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
             color: color,
-            child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
           ),
         );
 
         final tableHeaderBytes = await captureWidget(
           Container(
-            width: 550,
+            width: 500,
             color: Colors.grey[200],
+            padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
             child: const Row(
               children: [
-                Expanded(flex: 3, child: Padding(padding: EdgeInsets.all(6), child: Text('ಸಾಮಾನು / Ingredient', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
-                SizedBox(width: 70, child: Padding(padding: EdgeInsets.all(6), child: Text('ಪ್ರಮಾಣ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
-                SizedBox(width: 50, child: Padding(padding: EdgeInsets.all(6), child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                Expanded(flex: 3, child: Padding(padding: EdgeInsets.all(4), child: Text('ಸಾಮಾನು', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)))),
+                SizedBox(width: 60, child: Padding(padding: EdgeInsets.all(4), child: Text('ಪ್ರಮಾಣ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)))),
+                SizedBox(width: 40, child: Padding(padding: EdgeInsets.all(4), child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)))),
               ],
             ),
           ),
@@ -195,17 +216,24 @@ class KannadaPdfService {
         if (tableHeaderBytes != null) currentPageWidgets.add(pw.Image(pw.MemoryImage(tableHeaderBytes)));
         itemsOnCurrentPage += 2;
 
+        int processedCount = 0;
         for (var item in items) {
+          processedCount++;
+          if (processedCount % 3 == 0 || processedCount == items.length) {
+            progressNotifier.value = '$title: $processedCount/${items.length}';
+          }
+          
           final converted = _convertUnit(item.totalQty, item.unit);
           final rowBytes = await captureWidget(
             Container(
-              width: 550,
+              width: 500,
+              padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 0.5))),
               child: Row(
                 children: [
-                  Expanded(flex: 3, child: Padding(padding: const EdgeInsets.all(6), child: Text('${item.nameKn} (${item.nameEn})', style: const TextStyle(fontSize: 12)))),
-                  SizedBox(width: 70, child: Padding(padding: const EdgeInsets.all(6), child: Text(_formatQty(converted['qty'] as double), style: const TextStyle(fontSize: 12)))),
-                  SizedBox(width: 50, child: Padding(padding: const EdgeInsets.all(6), child: Text(converted['unit'] as String, style: const TextStyle(fontSize: 12)))),
+                  Expanded(flex: 3, child: Text('${item.nameKn} (${item.nameEn})', style: const TextStyle(fontSize: 10))),
+                  SizedBox(width: 60, child: Text(_formatQty(converted['qty'] as double), style: const TextStyle(fontSize: 10))),
+                  SizedBox(width: 40, child: Text(converted['unit'] as String, style: const TextStyle(fontSize: 10))),
                 ],
               ),
             ),
@@ -218,10 +246,10 @@ class KannadaPdfService {
               itemsOnCurrentPage = 0;
               final contHeaderBytes = await captureWidget(
                 Container(
-                  width: 550,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  width: 500,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                   color: color,
-                  child: Text('$title (ಮುಂದುವರೆದಿದೆ)', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                  child: Text('$title (ಮುಂದುವರೆದಿದೆ)', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               );
               if (contHeaderBytes != null) currentPageWidgets.add(pw.Image(pw.MemoryImage(contHeaderBytes)));
@@ -230,23 +258,46 @@ class KannadaPdfService {
             }
             currentPageWidgets.add(pw.Image(pw.MemoryImage(rowBytes)));
             itemsOnCurrentPage++;
+          } else {
+            debugPrint('Warning: Failed to capture row for ${item.nameEn}');
           }
         }
 
-        currentPageWidgets.add(pw.SizedBox(height: 12));
+        currentPageWidgets.add(pw.SizedBox(height: 10));
       }
 
+      progressNotifier.value = 'Processing Groceries...';
       await processCategory('ದಿನಸಿ (Groceries)', groceriesList, const Color(0xFF009688));
+      
+      progressNotifier.value = 'Processing Vegetables...';
       await processCategory('ತರಕಾರಿ (Vegetables)', vegetablesList, const Color(0xFF4CAF50));
+      
+      progressNotifier.value = 'Processing Dairy...';
       await processCategory('ಹಾಲು/ಮೊಸರು (Dairy)', dairyList, const Color(0xFF2196F3));
 
       if (currentPageWidgets.isNotEmpty) {
         pages.add(_PdfPageData(widgets: currentPageWidgets));
       }
 
-      if (pages.isEmpty) {
-        // Fallback to PDF-package rendering so user never sees a blank PDF
+      // Check if we have enough content
+      int totalImages = pages.fold<int>(0, (sum, page) => sum + page.widgets.length);
+      final totalExpectedItems = groceriesList.length + vegetablesList.length + dairyList.length;
+      final failureRate = totalCaptures > 0 ? (failedCaptures / totalCaptures) : 0;
+      
+      debugPrint('PDF Stats: pages=${pages.length}, images=$totalImages, captures=$totalCaptures, failed=$failedCaptures, rate=$failureRate');
+      
+      // Use fallback if capture failed significantly (>30% failure or no pages)
+      if (pages.isEmpty || totalImages < 3 || failureRate > 0.3) {
+        debugPrint('Screenshot capture insufficient. Using fallback. (pages: ${pages.length}, images: $totalImages, failure rate: ${(failureRate * 100).toStringAsFixed(0)}%)');
         Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Using reliable PDF method...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
         await _generatePdfFallback(
           context: context,
           groceriesList: groceriesList,
@@ -258,6 +309,8 @@ class KannadaPdfService {
         );
         return;
       }
+      
+      progressNotifier.value = 'Creating PDF ($totalImages items)...';
 
       for (var page in pages) {
         pdf.addPage(
@@ -291,70 +344,6 @@ class KannadaPdfService {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error generating PDF: $e')),
-      );
-    }
-  }
-
-  /// Minimal demo PDF using Syncfusion (full shaping) for Kannada verification
-  static Future<void> generateKannadaDemoPdf(BuildContext context) async {
-    try {
-      final generatedDateStr = DateFormat('dd-MMM-yyyy').format(DateTime.now());
-
-      // Load local Noto Sans Kannada font
-      final fontData = await rootBundle.load('assets/fonts/NotoSansKannada-Regular.ttf');
-      final fontBytes = fontData.buffer.asUint8List();
-      final knFont = sf.PdfTrueTypeFont(fontBytes, 12);
-      final knFontBold = sf.PdfTrueTypeFont(fontBytes, 14, style: sf.PdfFontStyle.bold);
-
-      final document = sf.PdfDocument();
-      final page = document.pages.add();
-      final clientSize = page.getClientSize();
-
-      double top = 0;
-      void drawText(String text, sf.PdfTrueTypeFont font,
-          {double lineHeight = 20, sf.PdfBrush? brush}) {
-        page.graphics.drawString(
-          text,
-          font,
-          brush: brush ?? sf.PdfBrushes.black,
-          bounds: Rect.fromLTWH(0, top, clientSize.width, lineHeight),
-        );
-        top += lineHeight;
-      }
-
-      // Header
-      drawText('ॐ  ನಮಸ್ಕಾರ ಕನ್ನಡ', knFontBold, lineHeight: 22, brush: sf.PdfBrushes.darkOrange);
-      drawText('ದಿನಾಂಕ (Date): $generatedDateStr', knFontBold, lineHeight: 18);
-      top += 6;
-
-      // Sample list with complex Kannada conjuncts
-      drawText('ಸ್ಯಾಂಪಲ್ ಪಟ್ಟಿ:', knFontBold, lineHeight: 18);
-      drawText('• ಅಕ್ಕಿ (Rice) - 5 kg', knFont, lineHeight: 18);
-      drawText('• ಬೇಳೆ (Dal) - 2 kg', knFont, lineHeight: 18);
-      drawText('• ತುಪ್ಪ (Ghee) - 1 kg', knFont, lineHeight: 18);
-      drawText('• ತರಕಾರಿ (Vegetables) - 10 kg', knFont, lineHeight: 18);
-      drawText('• ಹುಣಸೆಹಣ್ಣು (Tamarind) - 500 g', knFont, lineHeight: 18);
-      drawText('• ಬೆಂಗಳೂರು (Bengaluru)', knFont, lineHeight: 18);
-      top += 6;
-      
-      // Test complex conjuncts
-      drawText('ಸಂಕೀರ್ಣ ಅಕ್ಷರಗಳು (Complex Conjuncts):', knFontBold, lineHeight: 18);
-      drawText('ದಿನಾಂಕ, ಸಾಮಾನು, ಪ್ರಮಾಣ, ಮುಂದುವರೆದಿದೆ', knFont, lineHeight: 18);
-      drawText('ಶ್ರೀ, ಕ್ಷೇತ್ರ, ಜ್ಞಾನ, ನ್ಯಾಯ', knFont, lineHeight: 18);
-
-      final bytesList = await document.save();
-      document.dispose();
-      final bytes = Uint8List.fromList(bytesList);
-
-      final filename = 'KannadaDemo_$generatedDateStr.pdf';
-      final output = await getTemporaryDirectory();
-      final file = File('${output.path}/$filename');
-      await file.writeAsBytes(bytes, flush: true);
-
-      await Printing.sharePdf(bytes: bytes, filename: filename);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kannada demo PDF error: $e')),
       );
     }
   }
@@ -669,315 +658,6 @@ class KannadaPdfService {
           ],
         ),
       ),
-    );
-  }
-
-  /// Build header widget for PDF
-  static Widget _buildHeaderWidget({required String eventDateStr}) {
-    return Material(
-      color: Colors.white,
-      child: Container(
-        width: 550,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'ॐ',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepOrange,
-                  ),
-                ),
-                const Text(
-                  'ಸಾಮಾನು ಪಟ್ಟಿ / GROCERY LIST',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(thickness: 2),
-            const SizedBox(height: 8),
-            Text(
-              'ದಿನಾಂಕ (Date): $eventDateStr',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build a single category section widget for PDF
-  static Widget _buildCategorySectionWidget(
-    String title,
-    List<_MergedIngredient> items,
-    Color headerColor,
-  ) {
-    return Material(
-      color: Colors.white,
-      child: Container(
-        width: 550,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              color: headerColor,
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            Table(
-              border: TableBorder.all(color: Colors.grey[300]!),
-              columnWidths: const {
-                0: FlexColumnWidth(3),
-                1: FixedColumnWidth(70),
-                2: FixedColumnWidth(60),
-              },
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(color: Colors.grey[200]),
-                  children: const [
-                    Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('ಸಾಮಾನು / Ingredient', 
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('ಪ್ರಮಾಣ', 
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('Unit', 
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    ),
-                  ],
-                ),
-                ...items.map((item) {
-                  final converted = _convertUnit(item.totalQty, item.unit);
-                  return TableRow(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Text(
-                          '${item.nameKn} (${item.nameEn})',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Text(
-                          _formatQty(converted['qty'] as double),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Text(
-                          converted['unit'] as String,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build the widget content for PDF (legacy - kept for compatibility)
-  static Widget _buildPdfContentWidget({
-    required String eventDateStr,
-    required List<_MergedIngredient> groceriesList,
-    required List<_MergedIngredient> vegetablesList,
-    required List<_MergedIngredient> dairyList,
-  }) {
-    return Material(
-      color: Colors.white,
-      child: Container(
-        width: 595, // A4 width in points
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'ॐ',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepOrange,
-                  ),
-                ),
-                const Text(
-                  'ಅಡುಗೆ ಪಟ್ಟಿ / GROCERY LIST',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(thickness: 2),
-            const SizedBox(height: 10),
-            
-            // Date
-            Text(
-              'ದಿನಾಂಕ (Date): $eventDateStr',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            
-            const Text(
-              'ಒಟ್ಟು ಸಾಮಾನುಗಳು / Overall Ingredients',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-            const SizedBox(height: 10),
-            
-            // Groceries
-            if (groceriesList.isNotEmpty) ...[
-              _buildCategorySection(
-                'ದಿನಸಿ (Groceries)',
-                groceriesList,
-                const Color(0xFF009688),
-              ),
-              const SizedBox(height: 12),
-            ],
-            
-            // Vegetables
-            if (vegetablesList.isNotEmpty) ...[
-              _buildCategorySection(
-                'ತರಕಾರಿ (Vegetables)',
-                vegetablesList,
-                const Color(0xFF4CAF50),
-              ),
-              const SizedBox(height: 12),
-            ],
-            
-            // Dairy
-            if (dairyList.isNotEmpty) ...[
-              _buildCategorySection(
-                'ಹಾಲು/ಮೊಸರು (Milk/Curd)',
-                dairyList,
-                const Color(0xFF2196F3),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  static Widget _buildCategorySection(
-    String title,
-    List<_MergedIngredient> items,
-    Color headerColor,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          color: headerColor,
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ),
-        Table(
-          border: TableBorder.all(color: Colors.grey[300]!),
-          columnWidths: const {
-            0: FlexColumnWidth(3),
-            1: FixedColumnWidth(70),
-            2: FixedColumnWidth(60),
-          },
-          children: [
-            // Header row
-            TableRow(
-              decoration: BoxDecoration(color: Colors.grey[200]),
-              children: const [
-                Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Text('ಸಾಮಾನು / Ingredient', 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Text('ಪ್ರಮಾಣ', 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Text('Unit', 
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-              ],
-            ),
-            // Data rows
-            ...items.map((item) {
-              final converted = _convertUnit(item.totalQty, item.unit);
-              return TableRow(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      '${item.nameKn} (${item.nameEn})',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      _formatQty(converted['qty'] as double),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      converted['unit'] as String,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
-          ],
-        ),
-      ],
     );
   }
 
