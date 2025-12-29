@@ -2,7 +2,7 @@ class DishIngredient {
   final int? id;
   final int dishId;
   final int ingredientId;
-  final double qtyFor100;
+  final double qtyFor100; // NOTE: Despite the name, this is quantity for 500 people baseline
   final String unit;
 
   // For display (joined data)
@@ -40,7 +40,7 @@ class DishIngredient {
         ingredientCategory: map['ingredientCategory'] ?? map['category'],
       );
 
-  double getScaledQty(int people) => qtyFor100 * (people / 100);
+  double getScaledQty(int people) => qtyFor100 * (people / 500.0);
 
   String getDisplayName(String lang) {
     final en = ingredientNameEn ?? '';

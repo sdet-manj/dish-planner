@@ -25,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Ingredient> _allIngredients = [];
   List<PlanItem> _planItems = [];
   List<ExtraIngredient> _extraIngredients = [];
-  int _globalPeople = 100;
+  int _globalPeople = 500;
   DateTime _selectedDate = DateTime.now();
   bool _loading = true;
 
@@ -1076,7 +1076,7 @@ class _ExtraIngredientPickerState extends State<_ExtraIngredientPicker> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Set quantity for 100 people',
+              'Set quantity for 500 people',
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ),

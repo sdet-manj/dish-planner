@@ -384,7 +384,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
                       children: [
                         Icon(Icons.info_outline, color: Colors.teal),
                         SizedBox(width: 8),
-                        Text('Baseline: 100 people',
+                        Text('Baseline: 500 people',
                             style: TextStyle(color: Colors.teal)),
                       ],
                     ),
@@ -459,7 +459,7 @@ class _CreateDishScreenState extends State<CreateDishScreen> {
                                         keyboardType: const TextInputType
                                             .numberWithOptions(decimal: true),
                                         decoration: const InputDecoration(
-                                          labelText: 'Qty for 100 ppl',
+                                          labelText: 'Qty for 500 ppl',
                                           border: OutlineInputBorder(),
                                           isDense: true,
                                         ),

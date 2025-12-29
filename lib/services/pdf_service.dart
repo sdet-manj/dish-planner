@@ -67,12 +67,20 @@ class PdfService {
     double convertedQty = qty;
     String convertedUnit = unit;
 
+    // Convert g to kg or ml to L
     if (unit == 'g' && qty >= 1000) {
       convertedQty = qty / 1000;
       convertedUnit = 'kg';
+      // Round to nearest 0.25 kg (250g increments) for easier shopping
+      convertedQty = (convertedQty * 4).ceil() / 4; // Round up to nearest 0.25
     } else if (unit == 'ml' && qty >= 1000) {
       convertedQty = qty / 1000;
       convertedUnit = 'L';
+      // Round to nearest 0.25 L (250ml increments)
+      convertedQty = (convertedQty * 4).ceil() / 4;
+    } else if (unit == 'pcs' && qty > 20) {
+      // Round up to next 5 for pieces
+      convertedQty = (qty / 5).ceil() * 5;
     }
 
     return {'qty': convertedQty, 'unit': convertedUnit};

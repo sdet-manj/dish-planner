@@ -50,16 +50,33 @@ class _PreviewScreenState extends State<PreviewScreen>
   Map<String, dynamic> _convertUnit(double qty, String unit) {
     double convertedQty = qty;
     String convertedUnit = unit;
+    double? originalQty; // Track original before rounding
 
+    // Convert g to kg or ml to L
     if (unit == 'g' && qty >= 1000) {
       convertedQty = qty / 1000;
       convertedUnit = 'kg';
+      originalQty = convertedQty;
+      // Round to nearest 0.25 kg (250g increments) for easier shopping
+      convertedQty = (convertedQty * 4).ceil() / 4; // Round up to nearest 0.25
     } else if (unit == 'ml' && qty >= 1000) {
       convertedQty = qty / 1000;
       convertedUnit = 'L';
+      originalQty = convertedQty;
+      // Round to nearest 0.25 L (250ml increments)
+      convertedQty = (convertedQty * 4).ceil() / 4;
+    } else if (unit == 'pcs' && qty > 20) {
+      originalQty = qty;
+      // Round up to next 5 for pieces
+      convertedQty = (qty / 5).ceil() * 5;
     }
 
-    return {'qty': convertedQty, 'unit': convertedUnit};
+    return {
+      'qty': convertedQty, 
+      'unit': convertedUnit,
+      'original': originalQty, // Include original for preview display
+      'rounded': originalQty != null && (originalQty - convertedQty).abs() > 0.01,
+    };
   }
 
   Map<String, _MergedIngredient> _getMergedIngredients() {
@@ -181,12 +198,20 @@ class _PreviewScreenState extends State<PreviewScreen>
             final converted = _convertUnit(m.totalQty, m.unit);
             final qty = converted['qty'] as double;
             final unit = converted['unit'] as String;
+            final original = converted['original'] as double?;
+            final wasRounded = converted['rounded'] as bool? ?? false;
+            
+            String displayQty = _formatQty(qty);
+            if (wasRounded && original != null) {
+              displayQty = '${_formatQty(original)} → $displayQty';
+            }
+            
             return ListTile(
               title: Text(_getDisplayName(m.nameKn, m.nameEn)),
               subtitle: Text('Used in: ${m.usedIn.join(", ")}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               trailing: Text(
-                '${_formatQty(qty)} $unit',
+                '$displayQty $unit',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),
             );
@@ -337,11 +362,19 @@ class _PreviewScreenState extends State<PreviewScreen>
                             final converted = _convertUnit(rawQty, ing.unit);
                             final qty = converted['qty'] as double;
                             final unit = converted['unit'] as String;
+                            final original = converted['original'] as double?;
+                            final wasRounded = converted['rounded'] as bool? ?? false;
+                            
+                            String displayQty = _formatQty(qty);
+                            if (wasRounded && original != null) {
+                              displayQty = '${_formatQty(original)} → $displayQty';
+                            }
+                            
                             return ListTile(
                               title: Text(_getDisplayName(
                                   ing.ingredientNameKn, ing.ingredientNameEn)),
                               trailing: Text(
-                                '${_formatQty(qty)} $unit',
+                                '$displayQty $unit',
                                 style: const TextStyle(
                                     fontSize: 14, fontWeight: FontWeight.w500),
                               ),
@@ -377,10 +410,18 @@ class _PreviewScreenState extends State<PreviewScreen>
                         final converted = _convertUnit(rawQty, extra.unit);
                         final qty = converted['qty'] as double;
                         final unit = converted['unit'] as String;
+                        final original = converted['original'] as double?;
+                        final wasRounded = converted['rounded'] as bool? ?? false;
+                        
+                        String displayQty = _formatQty(qty);
+                        if (wasRounded && original != null) {
+                          displayQty = '${_formatQty(original)} → $displayQty';
+                        }
+                        
                         return ListTile(
                           title: Text(extra.getDisplayName()),
                           trailing: Text(
-                            '${_formatQty(qty)} $unit',
+                            '$displayQty $unit',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.w500),
                           ),
