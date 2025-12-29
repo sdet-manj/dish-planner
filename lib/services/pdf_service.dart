@@ -322,23 +322,37 @@ class PdfService {
     // Merge all ingredients
     final Map<String, _MergedIngredient> merged = {};
 
+    // Helper to normalize unit and quantity
+    Map<String, dynamic> normalizeUnit(double qty, String unit) {
+      if (unit == 'g') {
+        return {'qty': qty / 1000, 'unit': 'kg'};
+      } else if (unit == 'ml') {
+        return {'qty': qty / 1000, 'unit': 'L'};
+      }
+      return {'qty': qty, 'unit': unit};
+    }
+
     // From dishes
     for (var item in planItems) {
       final effectivePeople = item.getEffectivePeople(globalPeople);
       for (var ing in item.ingredients) {
         final qty = ing.getScaledQty(effectivePeople);
-        final key = '${ing.ingredientId}_${ing.unit}';
+        final normalized = normalizeUnit(qty, ing.unit);
+        final normalizedQty = normalized['qty'] as double;
+        final normalizedUnit = normalized['unit'] as String;
+        
+        final key = '${ing.ingredientId}_$normalizedUnit';
         if (merged.containsKey(key)) {
-          merged[key]!.totalQty += qty;
+          merged[key]!.totalQty += normalizedQty;
           merged[key]!.usedIn.add(item.dish.nameEn ?? item.dish.nameKn);
         } else {
           merged[key] = _MergedIngredient(
             ingredientId: ing.ingredientId,
             nameEn: ing.ingredientNameEn ?? '',
             nameKn: ing.ingredientNameKn ?? '',
-            unit: ing.unit,
+            unit: normalizedUnit,
             category: ing.ingredientCategory ?? 'dinasi',
-            totalQty: qty,
+            totalQty: normalizedQty,
             usedIn: [item.dish.nameEn ?? item.dish.nameKn],
           );
         }
@@ -348,9 +362,13 @@ class PdfService {
     // From extra ingredients
     for (var extra in extraIngredients) {
       final qty = extra.getScaledQty(globalPeople);
-      final key = '${extra.ingredient.id}_${extra.unit}';
+      final normalized = normalizeUnit(qty, extra.unit);
+      final normalizedQty = normalized['qty'] as double;
+      final normalizedUnit = normalized['unit'] as String;
+      
+      final key = '${extra.ingredient.id}_$normalizedUnit';
       if (merged.containsKey(key)) {
-        merged[key]!.totalQty += qty;
+        merged[key]!.totalQty += normalizedQty;
         if (!merged[key]!.usedIn.contains('Extra')) {
           merged[key]!.usedIn.add('Extra');
         }
@@ -359,9 +377,9 @@ class PdfService {
           ingredientId: extra.ingredient.id!,
           nameEn: extra.ingredient.nameEn ?? '',
           nameKn: extra.ingredient.nameKn,
-          unit: extra.unit,
+          unit: normalizedUnit,
           category: extra.ingredient.category.name,
-          totalQty: qty,
+          totalQty: normalizedQty,
           usedIn: ['Extra'],
         );
       }
