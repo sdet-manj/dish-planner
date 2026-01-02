@@ -64,9 +64,9 @@ class _MastersScreenState extends State<MastersScreen>
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: knController,
+                children: [
+                  TextField(
+                    controller: knController,
                   decoration: const InputDecoration(
                     labelText: 'Name (Kannada) *',
                     border: OutlineInputBorder(),
@@ -156,9 +156,9 @@ class _MastersScreenState extends State<MastersScreen>
             width: double.maxFinite,
             child: IntrinsicHeight(
               child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-              children: [
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                 TextField(
                   controller: knController,
                   decoration: const InputDecoration(
@@ -201,6 +201,7 @@ class _MastersScreenState extends State<MastersScreen>
                   ),
                 ],
               ),
+            ),
             ),
           ),
           actions: [
