@@ -108,6 +108,7 @@ class _MastersScreenState extends State<MastersScreen>
                 ],
               ),
             ),
+            ),
           ),
           actions: [
             TextButton(
@@ -151,9 +152,11 @@ class _MastersScreenState extends State<MastersScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Edit Ingredient'),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
           content: SizedBox(
             width: double.maxFinite,
-            child: SingleChildScrollView(
+            child: IntrinsicHeight(
+              child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
               children: [
@@ -199,6 +202,7 @@ class _MastersScreenState extends State<MastersScreen>
                   ),
                 ],
               ),
+            ),
             ),
           ),
           actions: [
