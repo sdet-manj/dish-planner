@@ -148,113 +148,117 @@ class _MastersScreenState extends State<MastersScreen>
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Edit Ingredient'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: knController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (Kannada) *',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: enController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (English) - Optional',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<IngredientCategory>(
-                value: category,
-                decoration: const InputDecoration(
-                  labelText: 'Category (ವರ್ಗ)',
-                  border: OutlineInputBorder(),
-                ),
-                items: IngredientCategory.values
-                    .map((c) => DropdownMenuItem(
-                        value: c, child: Text(c.displayName)))
-                    .toList(),
-                onChanged: (v) => setDialogState(() => category = v ?? IngredientCategory.dinasi),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: unit,
-                decoration: const InputDecoration(
-                  labelText: 'Default Unit',
-                  border: OutlineInputBorder(),
-                ),
-                items: ['kg', 'g', 'L', 'ml', 'pcs']
-                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                    .toList(),
-                onChanged: (v) => setDialogState(() => unit = v ?? 'kg'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Delete Ingredient?'),
-                    content: const Text(
-                        'This will remove the ingredient from all dishes.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Ingredient'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    TextField(
+                      controller: knController,
+                      decoration: const InputDecoration(
+                        labelText: 'Name (Kannada) *',
+                        border: OutlineInputBorder(),
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Delete',
-                            style: TextStyle(color: Colors.red)),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: enController,
+                      decoration: const InputDecoration(
+                        labelText: 'Name (English) - Optional',
+                        border: OutlineInputBorder(),
                       ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  await _db.deleteIngredient(ing.id!);
-                  Navigator.pop(context);
-                  _loadData();
-                }
-              },
-              child: const Text('Delete', style: TextStyle(color: Colors.red)),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (knController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill Kannada name')),
-                  );
-                  return;
-                }
-                final nameEn = enController.text.trim();
-                await _db.updateIngredient(Ingredient(
-                  id: ing.id,
-                  nameEn: nameEn.isNotEmpty ? nameEn : null,
-                  nameKn: knController.text.trim(),
-                  defaultUnit: unit,
-                  category: category,
-                ));
-                Navigator.pop(context);
-                _loadData();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<IngredientCategory>(
+                      value: category,
+                      decoration: const InputDecoration(
+                        labelText: 'Category (ವರ್ಗ)',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: IngredientCategory.values
+                          .map((c) => DropdownMenuItem(
+                              value: c, child: Text(c.displayName)))
+                          .toList(),
+                      onChanged: (v) => setDialogState(() => category = v ?? IngredientCategory.dinasi),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: unit,
+                      decoration: const InputDecoration(
+                        labelText: 'Default Unit',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: ['kg', 'g', 'L', 'ml', 'pcs']
+                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (v) => setDialogState(() => unit = v ?? 'kg'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Ingredient?'),
+                        content: const Text(
+                            'This will remove the ingredient from all dishes.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete',
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await _db.deleteIngredient(ing.id!);
+                      Navigator.pop(dialogContext);
+                      _loadData();
+                    }
+                  },
+                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (knController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please fill Kannada name')),
+                      );
+                      return;
+                    }
+                    final nameEn = enController.text.trim();
+                    await _db.updateIngredient(Ingredient(
+                      id: ing.id,
+                      nameEn: nameEn.isNotEmpty ? nameEn : null,
+                      nameKn: knController.text.trim(),
+                      defaultUnit: unit,
+                      category: category,
+                    ));
+                    Navigator.pop(dialogContext);
+                    _loadData();
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
