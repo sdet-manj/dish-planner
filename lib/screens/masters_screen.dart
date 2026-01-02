@@ -151,29 +151,27 @@ class _MastersScreenState extends State<MastersScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Edit Ingredient'),
-          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
           content: SizedBox(
             width: double.maxFinite,
-            child: IntrinsicHeight(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                TextField(
-                  controller: knController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name (Kannada) *',
-                    border: OutlineInputBorder(),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: knController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name (Kannada) *',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: enController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name (English) - Optional',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: enController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name (English) - Optional',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<IngredientCategory>(
                     value: category,
@@ -201,7 +199,6 @@ class _MastersScreenState extends State<MastersScreen>
                   ),
                 ],
               ),
-            ),
             ),
           ),
           actions: [
