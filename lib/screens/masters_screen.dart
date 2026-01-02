@@ -108,7 +108,6 @@ class _MastersScreenState extends State<MastersScreen>
                 ],
               ),
             ),
-            ),
           ),
           actions: [
             TextButton(
