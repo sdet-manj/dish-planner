@@ -141,7 +141,7 @@ class _MastersScreenState extends State<MastersScreen>
   }
 
   void _showEditIngredientDialog(Ingredient ing) {
-    final enController = TextEditingController(text: ing.nameEn);
+    final enController = TextEditingController(text: ing.nameEn ?? '');
     final knController = TextEditingController(text: ing.nameKn);
     String unit = ing.defaultUnit;
     IngredientCategory category = ing.category;
@@ -151,55 +151,50 @@ class _MastersScreenState extends State<MastersScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Edit Ingredient'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: knController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name (Kannada) *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: enController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name (English) - Optional',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<IngredientCategory>(
-                    value: category,
-                    decoration: const InputDecoration(
-                      labelText: 'Category (ವರ್ಗ)',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: IngredientCategory.values
-                        .map((c) => DropdownMenuItem(
-                            value: c, child: Text(c.displayName)))
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => category = v ?? IngredientCategory.dinasi),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: unit,
-                    decoration: const InputDecoration(
-                      labelText: 'Default Unit',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: ['kg', 'g', 'L', 'ml', 'pcs']
-                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => unit = v ?? 'kg'),
-                  ),
-                ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: knController,
+                decoration: const InputDecoration(
+                  labelText: 'Name (Kannada) *',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: enController,
+                decoration: const InputDecoration(
+                  labelText: 'Name (English) - Optional',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<IngredientCategory>(
+                value: category,
+                decoration: const InputDecoration(
+                  labelText: 'Category (ವರ್ಗ)',
+                  border: OutlineInputBorder(),
+                ),
+                items: IngredientCategory.values
+                    .map((c) => DropdownMenuItem(
+                        value: c, child: Text(c.displayName)))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => category = v ?? IngredientCategory.dinasi),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: unit,
+                decoration: const InputDecoration(
+                  labelText: 'Default Unit',
+                  border: OutlineInputBorder(),
+                ),
+                items: ['kg', 'g', 'L', 'ml', 'pcs']
+                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => unit = v ?? 'kg'),
+              ),
+            ],
           ),
           actions: [
             TextButton(
